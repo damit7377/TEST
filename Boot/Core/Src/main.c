@@ -100,7 +100,15 @@ int main(void)
   MX_XSPI2_Init();
   MX_EXTMEM_MANAGER_Init();
   /* USER CODE BEGIN 2 */
-
+  uint32_t psramDivider = ((READ_REG(hxspi1.Instance->DCR2) & XSPI_DCR2_PRESCALER) >>
+                           XSPI_DCR2_PRESCALER_Pos) + 1U;
+  uint32_t psramClockHz = HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_XSPI1) / psramDivider;
+  if (psramClockHz < 1000000U)
+  {
+    Error_Handler();
+  }
+  hxspi1.Init.Refresh = psramClockHz / 1000000U - 1U;
+  WRITE_REG(hxspi1.Instance->DCR4, hxspi1.Init.Refresh);
   /* USER CODE END 2 */
 
   /* Launch the application */
@@ -269,7 +277,8 @@ static void MX_SBS_Init(void)
 
   /* USER CODE END SBS_Init 1 */
   /* USER CODE BEGIN SBS_Init 2 */
-
+  /* XSPI1 runs the 1.8 V PSRAM; HSLV needs both the option byte and this SBS bit */
+  HAL_SBS_EnableIOSpeedOptimize(SBS_IO_XSPI1_HSLV);
   /* USER CODE END SBS_Init 2 */
 
 }

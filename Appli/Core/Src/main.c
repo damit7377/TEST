@@ -31,7 +31,17 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define LCD_WIDTH       1024U
+#define LCD_HEIGHT      600U
+#define LCD_FB_ADDR     ((uintptr_t)__lcd_framebuffer_start__)
+#define RGB565_BLUE     0x001FU
+#define RGB565_GREEN    0x07E0U
+#define RGB565_RED      0xF800U
 
+
+/* Backlight control definitions (from ref_code) */
+#define MAX_BRIGHTNESS_DUTY    92
+#define MIN_BRIGHTNESS_DUTY    20
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -52,7 +62,7 @@ LTDC_HandleTypeDef hltdc;
 TIM_HandleTypeDef htim13;
 
 /* USER CODE BEGIN PV */
-
+extern uint8_t __lcd_framebuffer_start__[];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -65,12 +75,85 @@ static void MX_GPU2D_Init(void);
 static void MX_TIM13_Init(void);
 static void MX_ICACHE_GPU2D_Init(void);
 /* USER CODE BEGIN PFP */
-
+static void LCD_FillColor(uint16_t color);
+static void APP_FillFrameBuffer(uint16_t color);
+static void APP_RunColorCycleTest(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static void Set_Brightness_Duty(uint8_t duty)
+{
+  duty = (duty > 100) ? 100 : duty;
+  duty = 100 - duty;
+  duty = ((MAX_BRIGHTNESS_DUTY - MIN_BRIGHTNESS_DUTY) * duty) / 100 + MIN_BRIGHTNESS_DUTY;
+   __HAL_TIM_SET_COMPARE(&htim13, TIM_CHANNEL_1, duty);
+}
 
+static void APP_FillFrameBuffer(uint16_t color)
+{
+  volatile uint32_t *fb = (volatile uint32_t *)LCD_FB_ADDR;
+  uint32_t twoPixels = ((uint32_t)color << 16) | color;
+
+  for (uint32_t i = 0; i < (LCD_WIDTH * LCD_HEIGHT) / 2U; i++)
+  {
+    fb[i] = twoPixels;
+  }
+}
+
+static void APP_RunColorCycleTest(void)
+{
+  static const uint16_t colors[] = {RGB565_RED, RGB565_GREEN, RGB565_BLUE};
+
+  while (1)
+  {
+    for (uint32_t i = 0; i < sizeof(colors) / sizeof(colors[0]); i++)
+    {
+      APP_FillFrameBuffer(colors[i]);
+      HAL_Delay(1000U);
+    }
+  }
+}
+
+static void LCD_FillColor(uint16_t color)
+{
+  /* LTDC Power-On Sequence (from ref_code) */
+  /* Step 1: NRST Reset Pulse */
+  HAL_GPIO_WritePin(TFT_NRST_GPIO_Port, TFT_NRST_Pin, GPIO_PIN_RESET);
+  HAL_Delay(50);  /* > 50 ms */
+  HAL_GPIO_WritePin(TFT_NRST_GPIO_Port, TFT_NRST_Pin, GPIO_PIN_SET);
+
+/* Step 2: STBY Reset Pulse */
+  HAL_GPIO_WritePin(TFT_EN_GPIO_Port, TFT_EN_Pin, GPIO_PIN_RESET);
+  HAL_Delay(900);  /* > 900 ms */
+  HAL_GPIO_WritePin(TFT_EN_GPIO_Port, TFT_EN_Pin, GPIO_PIN_SET);
+
+  HAL_GPIO_WritePin(TFT_SETB_GPIO_Port, TFT_SETB_Pin, GPIO_PIN_RESET);
+
+  /* Step 3: Wait for stabilization */
+  HAL_Delay(200);  /* > 200 ms */
+
+/* Step 4: Enable backlight FIRST - simplified for bring-up */
+  HAL_GPIO_WritePin(BL_EN_GPIO_Port, BL_EN_Pin, GPIO_PIN_SET);
+  HAL_Delay(10);
+  Set_Brightness_Duty(100);
+  HAL_TIM_PWM_Start(&htim13, TIM_CHANNEL_1);
+
+  APP_FillFrameBuffer(color);
+
+  // __DSB();
+
+  // for (uint32_t index = 0; index < LCD_WIDTH * LCD_HEIGHT / 2U; index++)
+  // {
+  //   uint32_t actual = fb[index];
+  //   if (actual != twoPixels)
+  //   {
+  //     __BKPT(0);
+  //     break;
+  //   }
+  // }
+
+}
 /* USER CODE END 0 */
 
 /**
@@ -120,7 +203,8 @@ int main(void)
   MX_TIM13_Init();
   MX_ICACHE_GPU2D_Init();
   /* USER CODE BEGIN 2 */
-
+  LCD_FillColor(RGB565_RED);
+  APP_RunColorCycleTest();
   /* USER CODE END 2 */
 
   /* Infinite loop */

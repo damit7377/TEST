@@ -42,9 +42,10 @@ _Min_Heap_Size = 0x200; /* required amount of heap */
 _Min_Stack_Size = 0x400; /* required amount of stack */
 
 __FLASH_BEGIN  = 0x70000000;
-__FLASH_SIZE   = 0x08000000;
+__FLASH_SIZE   = 0x02000000;
 __EXTRAM_BEGIN = 0x90000000;
-__EXTRAM_SIZE  = 0x02000000;
+__EXTRAM_SIZE  = 0x01000000;
+__LCD_FB_SIZE  = 1024 * 600 * 2;
 
 
 __RAM_BEGIN    = 0x24000000;
@@ -63,12 +64,20 @@ MEMORY
   BKPSRAM   (rw)  : ORIGIN = 0x38800000,  LENGTH = 0x00001000
 
   FLASH     (xrw) : ORIGIN = __FLASH_BEGIN, LENGTH = __FLASH_SIZE
-  EXTRAM    (rw)  : ORIGIN = __EXTRAM_BEGIN, LENGTH = __EXTRAM_SIZE
+  LCD_FB    (rw)  : ORIGIN = __EXTRAM_BEGIN, LENGTH = __LCD_FB_SIZE
+  EXTRAM    (rw)  : ORIGIN = __EXTRAM_BEGIN + __LCD_FB_SIZE, LENGTH = __EXTRAM_SIZE - __LCD_FB_SIZE
 }
 
 /* Sections */
 SECTIONS
 {
+  .lcd_framebuffer (NOLOAD) :
+  {
+    __lcd_framebuffer_start__ = .;
+    . = . + LENGTH(LCD_FB);
+    __lcd_framebuffer_end__ = .;
+  } >LCD_FB
+
   /* The startup code into "FLASH" FLASH type memory */
   .isr_vector :
   {
