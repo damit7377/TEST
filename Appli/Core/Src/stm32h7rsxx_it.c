@@ -168,9 +168,9 @@ void DebugMon_Handler(void)
 void TIM6_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM6_IRQn 0 */
-
+	HAL_TIM_IRQHandler(&htim6);
   /* USER CODE END TIM6_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim6);
+
   /* USER CODE BEGIN TIM6_IRQn 1 */
 
   /* USER CODE END TIM6_IRQn 1 */
@@ -224,7 +224,7 @@ void DMA2D_IRQHandler(void)
 void GPU2D_IRQHandler(void)
 {
   /* USER CODE BEGIN GPU2D_IRQn 0 */
-
+	HAL_GPU2D_IRQHandler(&hgpu2d);
   /* USER CODE END GPU2D_IRQn 0 */
   /* USER CODE BEGIN GPU2D_IRQn 1 */
 
@@ -237,7 +237,7 @@ void GPU2D_IRQHandler(void)
 void GPU2D_ER_IRQHandler(void)
 {
   /* USER CODE BEGIN GPU2D_ER_IRQn 0 */
-
+	HAL_GPU2D_ER_IRQHandler(&hgpu2d);
   /* USER CODE END GPU2D_ER_IRQn 0 */
   /* USER CODE BEGIN GPU2D_ER_IRQn 1 */
 

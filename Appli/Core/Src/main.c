@@ -40,7 +40,7 @@
 #define RGB565_BLUE     0x001FU
 #define RGB565_GREEN    0x07E0U
 #define RGB565_RED      0xF800U
-
+#define RGB565_WHITE    0xFFFFU
 
 /* Backlight control definitions (from ref_code) */
 #define MAX_BRIGHTNESS_DUTY    92
@@ -222,12 +222,13 @@ int main(void)
   MX_GPU2D_Init();
   MX_TIM13_Init();
   MX_ICACHE_GPU2D_Init();
+  LCD_FillColor(RGB565_WHITE);
   MX_TouchGFX_Init();
   /* Call PreOsInit function */
   MX_TouchGFX_PreOSInit();
   /* USER CODE BEGIN 2 */
-  LCD_FillColor(RGB565_RED);
-  APP_RunColorCycleTest();
+
+  // APP_RunColorCycleTest();
   /* USER CODE END 2 */
 
   /* Init scheduler */
