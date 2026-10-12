@@ -1,0 +1,134 @@
+
+# Created by https://www.toptal.com/developers/gitignore/api/eclipse,c++
+# Edit at https://www.toptal.com/developers/gitignore?templates=eclipse,c++
+
+### C++ ###
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+
+# Executables
+
+
+### Eclipse ###
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.settings/
+.loadpath
+.recommenders
+
+# External tool builders
+.externalToolBuilders/
+
+# PyDev specific (Python IDE for Eclipse)
+*.pydevproject
+
+# CDT-specific (C/C++ Development Tooling)
+
+# CDT- autotools
+.autotools
+
+# Java annotation processor (APT)
+.factorypath
+
+# PDT-specific (PHP Development Tools)
+.buildpath
+
+# sbteclipse plugin
+.target
+
+# Tern plugin
+.tern-project
+
+# TeXlipse plugin
+.texlipse
+
+# STS (Spring Tool Suite)
+.springBeans
+
+# Code Recommenders
+.recommenders/
+
+# Annotation Processing
+.apt_generated/
+.apt_generated_test/
+
+# Scala IDE specific (Scala & Java development for Eclipse)
+.cache-main
+.scala_dependencies
+.worksheet
+
+# Uncomment this line if you wish to ignore the project description file.
+# Typically, this file would be tracked if it contains build/dependency configurations:
+#.project
+
+### Eclipse Patch ###
+# Spring Boot Tooling
+.sts4-cache/
+
+# Build results
+**/Debug/
+**/debug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# End of https://www.toptal.com/developers/gitignore/api/eclipse,c++
+#*.temp
+/Application/TouchGFX/build/Debug/
+*.log
+/.metadata/.plugins/org.eclipse.core.resources/.history/
+/.metadata/.plugins/org.eclipse.core.resources/.projects/Application/.indexes/
+*.ipch
+
+/Application/TouchGFX/simulator/msvs/.vs/Application/v16/ipch/
+/Application/TouchGFX/simulator/msvs/.vs/
+/.metadata/
+
+/Application/_relate/
+*.VC.db
+/Application/si/
+/Application/Doc/version.txt
+/SmartDisplay10_1/TouchGFX/simulator/msvs/.vs/
+*.vcxproj.user
+
+*.sisc
+/si/
+/_relate/
+*options.cache
