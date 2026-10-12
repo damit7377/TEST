@@ -45,7 +45,7 @@ __FLASH_BEGIN  = 0x70000000;
 __FLASH_SIZE   = 0x02000000;
 __EXTRAM_BEGIN = 0x90000000;
 __EXTRAM_SIZE  = 0x01000000;
-__LCD_FB_SIZE  = 1024 * 600 * 2;
+__LCD_FB_SIZE  = 1024 * 600 * 2 * 2;
 
 
 __RAM_BEGIN    = 0x24000000;
@@ -77,6 +77,15 @@ SECTIONS
     . = . + LENGTH(LCD_FB);
     __lcd_framebuffer_end__ = .;
   } >LCD_FB
+
+  .nemagfx_buffers (NOLOAD) :
+  {
+    . = ALIGN(32);
+    KEEP(*(Nemagfx_Memory_Pool_Buffer))
+    . = ALIGN(32);
+    KEEP(*(Nemagfx_Stencil_Buffer))
+    . = ALIGN(32);
+  } >EXTRAM
 
   /* The startup code into "FLASH" FLASH type memory */
   .isr_vector :
