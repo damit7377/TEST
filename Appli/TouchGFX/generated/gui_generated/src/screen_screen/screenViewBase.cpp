@@ -12,12 +12,14 @@ screenViewBase::screenViewBase()
     add(__background);
 
     box1.setPosition(0, 0, 1024, 600);
-    box1.setColor(touchgfx::Color::getColorFromRGB(33, 204, 87));
+    box1.setColor(touchgfx::Color::getColorFromRGB(0, 0, 0));
     add(box1);
 
-    image1.setXY(0, 0);
-    image1.setBitmap(touchgfx::Bitmap(BITMAP_HEPA_1_ID));
-    add(image1);
+    animatedImage1.setXY(0, 0);
+    animatedImage1.setBitmaps(BITMAP_HEPA_1_ID, BITMAP_HEPA_3_ID);
+    animatedImage1.setUpdateTicksInterval(60);
+    animatedImage1.startAnimation(false, true, true);
+    add(animatedImage1);
 }
 
 screenViewBase::~screenViewBase()

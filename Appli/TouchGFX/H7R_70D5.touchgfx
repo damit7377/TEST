@@ -8,19 +8,18 @@
             "Type": "Box",
             "Name": "box1",
             "Width": 1024,
-            "Height": 600,
-            "Color": {
-              "Red": 33,
-              "Green": 204,
-              "Blue": 87
-            }
+            "Height": 600
           },
           {
-            "Type": "Image",
-            "Name": "image1",
+            "Type": "AnimatedImage",
+            "Name": "animatedImage1",
             "Width": 1024,
             "Height": 600,
-            "RelativeFilename": "HEPA_1.png"
+            "FileNameFirst": "HEPA_1.png",
+            "FileNameLast": "HEPA_3.png",
+            "UpdateTicksInterval": 1000,
+            "StartOnLoad": true,
+            "LoopEnabled": true
           }
         ],
         "Interactions": []
