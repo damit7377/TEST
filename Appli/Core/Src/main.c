@@ -222,7 +222,6 @@ int main(void)
   MX_GPU2D_Init();
   MX_TIM13_Init();
   MX_ICACHE_GPU2D_Init();
-  LCD_FillColor(RGB565_WHITE);
   MX_TouchGFX_Init();
   /* Call PreOsInit function */
   MX_TouchGFX_PreOSInit();
@@ -463,7 +462,7 @@ static void MX_LTDC_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN LTDC_Init 2 */
-
+  LCD_FillColor(RGB565_WHITE);
   /* USER CODE END LTDC_Init 2 */
 
 }
