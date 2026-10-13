@@ -3,6 +3,7 @@
 /*********************************************************************************/
 #include <gui_generated/screen_screen/screenViewBase.hpp>
 #include <touchgfx/Color.hpp>
+#include <images/BitmapDatabase.hpp>
 
 screenViewBase::screenViewBase()
 {
@@ -13,6 +14,10 @@ screenViewBase::screenViewBase()
     box1.setPosition(0, 0, 1024, 600);
     box1.setColor(touchgfx::Color::getColorFromRGB(33, 204, 87));
     add(box1);
+
+    image1.setXY(0, 0);
+    image1.setBitmap(touchgfx::Bitmap(BITMAP_HEPA_1_ID));
+    add(image1);
 }
 
 screenViewBase::~screenViewBase()

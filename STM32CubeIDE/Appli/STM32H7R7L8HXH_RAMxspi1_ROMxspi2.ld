@@ -43,6 +43,9 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 
 __FLASH_BEGIN  = 0x70000000;
 __FLASH_SIZE   = 0x02000000;
+__APP_FLASH_SIZE = 0x00100000;
+__TOUCHGFX_ASSETS_BEGIN = __FLASH_BEGIN + __APP_FLASH_SIZE;
+__TOUCHGFX_ASSETS_SIZE = __FLASH_SIZE - __APP_FLASH_SIZE;
 __EXTRAM_BEGIN = 0x90000000;
 __EXTRAM_SIZE  = 0x01000000;
 __LCD_FB_SIZE  = 1024 * 600 * 2 * 2;
@@ -63,7 +66,8 @@ MEMORY
   SRAMAHB   (rw)  : ORIGIN = 0x30000000,  LENGTH = 0x00008000
   BKPSRAM   (rw)  : ORIGIN = 0x38800000,  LENGTH = 0x00001000
 
-  FLASH     (xrw) : ORIGIN = __FLASH_BEGIN, LENGTH = __FLASH_SIZE
+  FLASH     (xrw) : ORIGIN = __FLASH_BEGIN, LENGTH = __APP_FLASH_SIZE
+  TOUCHGFX_ASSETS (xrw) : ORIGIN = __TOUCHGFX_ASSETS_BEGIN, LENGTH = __TOUCHGFX_ASSETS_SIZE
   LCD_FB    (rw)  : ORIGIN = __EXTRAM_BEGIN, LENGTH = __LCD_FB_SIZE
   EXTRAM    (rw)  : ORIGIN = __EXTRAM_BEGIN + __LCD_FB_SIZE, LENGTH = __EXTRAM_SIZE - __LCD_FB_SIZE
 }
@@ -120,6 +124,20 @@ SECTIONS
     *(.rodata*)        /* .rodata* sections (constants, strings, etc.) */
     . = ALIGN(4);
   } >FLASH
+
+  .touchgfx_assets :
+  {
+    . = ALIGN(4);
+    KEEP(*(TextFlashSection))
+    KEEP(*(TextFlashSection.*))
+    KEEP(*(FontFlashSection))
+    KEEP(*(FontFlashSection.*))
+    KEEP(*(FontSearchFlashSection))
+    KEEP(*(FontSearchFlashSection.*))
+    KEEP(*(ExtFlashSection))
+    KEEP(*(ExtFlashSection.*))
+    . = ALIGN(4);
+  } >TOUCHGFX_ASSETS
 
   .ARM.extab (READONLY) : /* The READONLY keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {
