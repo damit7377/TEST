@@ -91,6 +91,7 @@ static void MX_LTDC_Init(void);
 static void MX_GPU2D_Init(void);
 static void MX_TIM13_Init(void);
 static void MX_ICACHE_GPU2D_Init(void);
+static void MX_FLASH_Init(void);
 void StartDefaultTask(void *argument);
 extern void TouchGFX_Task(void *argument);
 
@@ -222,6 +223,7 @@ int main(void)
   MX_GPU2D_Init();
   MX_TIM13_Init();
   MX_ICACHE_GPU2D_Init();
+  MX_FLASH_Init();
   MX_TouchGFX_Init();
   /* Call PreOsInit function */
   MX_TouchGFX_PreOSInit();
@@ -348,6 +350,61 @@ static void MX_DMA2D_Init(void)
   /* USER CODE BEGIN DMA2D_Init 2 */
 
   /* USER CODE END DMA2D_Init 2 */
+
+}
+
+/**
+  * @brief FLASH Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_FLASH_Init(void)
+{
+
+  /* USER CODE BEGIN FLASH_Init 0 */
+  return;
+  /* USER CODE END FLASH_Init 0 */
+
+  FLASH_OBProgramInitTypeDef pOBInit = {0};
+
+  /* USER CODE BEGIN FLASH_Init 1 */
+
+
+  /* USER CODE END FLASH_Init 1 */
+  HAL_FLASHEx_OBGetConfig(&pOBInit);
+  if ((pOBInit.USERConfig1 & OB_IWDG_SW) != OB_IWDG_SW||
+(pOBInit.USERConfig1 & OB_XSPI1_HSLV_ENABLE) != OB_XSPI1_HSLV_ENABLE||
+(pOBInit.USERConfig1 & OB_XSPI2_HSLV_ENABLE) != OB_XSPI2_HSLV_DISABLE)
+  {
+  if (HAL_FLASH_Unlock() != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_FLASH_OB_Unlock() != HAL_OK)
+  {
+    Error_Handler();
+  }
+  pOBInit.OptionType = OPTIONBYTE_USER;
+  pOBInit.USERType = OB_USER_IWDG_SW|OB_USER_XSPI1_HSLV
+                              |OB_USER_XSPI2_HSLV;
+  pOBInit.USERConfig1 = OB_IWDG_SW|OB_XSPI1_HSLV_ENABLE
+                              |OB_XSPI2_HSLV_DISABLE;
+  if (HAL_FLASHEx_OBProgram(&pOBInit) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_FLASH_OB_Lock() != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_FLASH_Lock() != HAL_OK)
+  {
+    Error_Handler();
+  }
+  }
+  /* USER CODE BEGIN FLASH_Init 2 */
+
+  /* USER CODE END FLASH_Init 2 */
 
 }
 
