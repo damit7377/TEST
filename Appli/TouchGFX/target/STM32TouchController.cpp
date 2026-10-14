@@ -164,9 +164,8 @@ bool STM32TouchController::sampleTouch(int32_t& x, int32_t& y)
       rawY = resolution_y - 1U;
     }
 
-    x = ((uint32_t)rawY * (DISPLAY_WIDTH - 1U)) / (resolution_y - 1U);
-    y = ((uint32_t)(resolution_x - 1U - rawX) * (DISPLAY_HEIGHT - 1U)) /
-      (resolution_x - 1U);
+    x = ((uint32_t)rawX * (DISPLAY_WIDTH - 1U)) / (resolution_x - 1U);
+    y = ((uint32_t)rawY * (DISPLAY_HEIGHT - 1U)) / (resolution_y - 1U);
     return true;
 }
 

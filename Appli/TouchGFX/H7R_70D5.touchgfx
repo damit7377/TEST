@@ -5,21 +5,34 @@
         "Name": "screen",
         "Components": [
           {
-            "Type": "Box",
-            "Name": "box1",
-            "Width": 1024,
-            "Height": 600
-          },
-          {
-            "Type": "AnimatedImage",
-            "Name": "animatedImage1",
+            "Type": "Image",
+            "Name": "image1",
             "Width": 1024,
             "Height": 600,
-            "FileNameFirst": "HEPA_1.png",
-            "FileNameLast": "HEPA_3.png",
-            "UpdateTicksInterval": 1000,
-            "StartOnLoad": true,
-            "LoopEnabled": true
+            "RelativeFilename": "HEPA_3.png"
+          },
+          {
+            "Type": "Button",
+            "Name": "button1",
+            "X": 960,
+            "Y": 472,
+            "Width": 64,
+            "Height": 128,
+            "Pressed": "button_01_01.png",
+            "Released": "button_01_00.png"
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textArea1",
+            "X": 882,
+            "Width": 142,
+            "Height": 49,
+            "TextId": "__SingleUse_KRNP",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255
+            },
+            "AutoSize": true
           }
         ],
         "Interactions": []

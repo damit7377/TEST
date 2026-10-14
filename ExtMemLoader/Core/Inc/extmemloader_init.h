@@ -67,6 +67,8 @@ void Error_Handler(void);
 #define BL_EN_GPIO_Port GPIOG
 #define BL_PWM_Pin GPIO_PIN_8
 #define BL_PWM_GPIO_Port GPIOF
+#define TFT_LR_Pin GPIO_PIN_7
+#define TFT_LR_GPIO_Port GPION
 #define TFT_NRST_Pin GPIO_PIN_7
 #define TFT_NRST_GPIO_Port GPIOE
 #define CTP_RST_Pin GPIO_PIN_9

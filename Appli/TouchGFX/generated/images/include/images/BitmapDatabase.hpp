@@ -6,9 +6,11 @@
 #include <touchgfx/hal/Types.hpp>
 #include <touchgfx/Bitmap.hpp>
 
-const uint16_t BITMAP_HEPA_1_ID = 0;
-const uint16_t BITMAP_HEPA_2_ID = 1;
-const uint16_t BITMAP_HEPA_3_ID = 2;
+const uint16_t BITMAP_BUTTON_01_00_ID = 0;
+const uint16_t BITMAP_BUTTON_01_01_ID = 1;
+const uint16_t BITMAP_HEPA_1_ID = 2;
+const uint16_t BITMAP_HEPA_2_ID = 3;
+const uint16_t BITMAP_HEPA_3_ID = 4;
 
 namespace BitmapDatabase
 {

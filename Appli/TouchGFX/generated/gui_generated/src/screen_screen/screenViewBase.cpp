@@ -4,6 +4,7 @@
 #include <gui_generated/screen_screen/screenViewBase.hpp>
 #include <touchgfx/Color.hpp>
 #include <images/BitmapDatabase.hpp>
+#include <texts/TextKeysAndLanguages.hpp>
 
 screenViewBase::screenViewBase()
 {
@@ -11,15 +12,19 @@ screenViewBase::screenViewBase()
     __background.setColor(touchgfx::Color::getColorFromRGB(0, 0, 0));
     add(__background);
 
-    box1.setPosition(0, 0, 1024, 600);
-    box1.setColor(touchgfx::Color::getColorFromRGB(0, 0, 0));
-    add(box1);
+    image1.setXY(0, 0);
+    image1.setBitmap(touchgfx::Bitmap(BITMAP_HEPA_3_ID));
+    add(image1);
 
-    animatedImage1.setXY(0, 0);
-    animatedImage1.setBitmaps(BITMAP_HEPA_1_ID, BITMAP_HEPA_3_ID);
-    animatedImage1.setUpdateTicksInterval(60);
-    animatedImage1.startAnimation(false, true, true);
-    add(animatedImage1);
+    button1.setXY(960, 472);
+    button1.setBitmaps(touchgfx::Bitmap(BITMAP_BUTTON_01_00_ID), touchgfx::Bitmap(BITMAP_BUTTON_01_01_ID));
+    add(button1);
+
+    textArea1.setXY(882, 0);
+    textArea1.setColor(touchgfx::Color::getColorFromRGB(255, 0, 0));
+    textArea1.setLinespacing(0);
+    textArea1.setTypedText(touchgfx::TypedText(T___SINGLEUSE_KRNP));
+    add(textArea1);
 }
 
 screenViewBase::~screenViewBase()

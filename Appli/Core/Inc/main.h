@@ -71,6 +71,8 @@ void Error_Handler(void);
 #define BL_EN_GPIO_Port GPIOG
 #define BL_PWM_Pin GPIO_PIN_8
 #define BL_PWM_GPIO_Port GPIOF
+#define TFT_LR_Pin GPIO_PIN_7
+#define TFT_LR_GPIO_Port GPION
 #define OSC_IN_Pin GPIO_PIN_0
 #define OSC_IN_GPIO_Port GPIOH
 #define OSC_OUT_Pin GPIO_PIN_1

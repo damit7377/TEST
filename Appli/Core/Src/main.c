@@ -154,7 +154,7 @@ static void LCD_FillColor(uint16_t color)
   HAL_GPIO_WritePin(TFT_EN_GPIO_Port, TFT_EN_Pin, GPIO_PIN_SET);
 
   HAL_GPIO_WritePin(TFT_SETB_GPIO_Port, TFT_SETB_Pin, GPIO_PIN_RESET);
-
+  HAL_GPIO_WritePin(TFT_LR_GPIO_Port, TFT_LR_Pin, GPIO_PIN_SET);
   /* Step 3: Wait for stabilization */
   HAL_Delay(200);  /* > 200 ms */
 
@@ -166,17 +166,20 @@ static void LCD_FillColor(uint16_t color)
 
   APP_FillFrameBuffer(color);
 
-  // __DSB();
-
-  // for (uint32_t index = 0; index < LCD_WIDTH * LCD_HEIGHT / 2U; index++)
-  // {
-  //   uint32_t actual = fb[index];
-  //   if (actual != twoPixels)
-  //   {
-  //     __BKPT(0);
-  //     break;
-  //   }
-  // }
+//  (void)color;
+//  volatile uint16_t *frameBuffer = (volatile uint16_t *)LCD_FB_ADDR;
+//  for (uint32_t y = 0; y < LCD_HEIGHT; y++)
+//  {
+//    for (uint32_t x = 0; x < LCD_WIDTH; x++)
+//    {
+//      frameBuffer[y * LCD_WIDTH + x] = (x < (LCD_WIDTH / 2U)) ? RGB565_RED : RGB565_GREEN;
+//    }
+//  }
+//
+//  __DSB();
+//  while (1)
+//  {
+//  }
 
 }
 /* USER CODE END 0 */
@@ -233,7 +236,7 @@ int main(void)
   /* Call PreOsInit function */
   MX_TouchGFX_PreOSInit();
   /* USER CODE BEGIN 2 */
-
+  LCD_FillColor(RGB565_WHITE);
   // APP_RunColorCycleTest();
   /* USER CODE END 2 */
 
@@ -574,7 +577,7 @@ static void MX_LTDC_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN LTDC_Init 2 */
-  LCD_FillColor(RGB565_WHITE);
+  
   /* USER CODE END LTDC_Init 2 */
 
 }
@@ -643,6 +646,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOF_CLK_ENABLE();
+  __HAL_RCC_GPION_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
@@ -650,6 +654,9 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(BL_EN_GPIO_Port, BL_EN_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(TFT_LR_GPIO_Port, TFT_LR_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : TFT_EN_Pin TFT_SETB_Pin TFT_NRST_Pin CTP_RST_Pin */
   GPIO_InitStruct.Pin = TFT_EN_Pin|TFT_SETB_Pin|TFT_NRST_Pin|CTP_RST_Pin;
@@ -664,6 +671,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(BL_EN_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : TFT_LR_Pin */
+  GPIO_InitStruct.Pin = TFT_LR_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(TFT_LR_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : CTP_INT_Pin */
   GPIO_InitStruct.Pin = CTP_INT_Pin;

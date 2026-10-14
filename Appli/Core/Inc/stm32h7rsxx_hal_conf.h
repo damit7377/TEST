@@ -175,7 +175,7 @@
   * @brief This is the HAL system configuration section
   */
 #define  VDD_VALUE                    3300UL /*!< Value of VDD in mv */
-#define  TICK_INT_PRIORITY            (4UL)/*!< HAL tick runs above the FreeRTOS syscall-priority threshold */
+#define  TICK_INT_PRIORITY            (4UL)/*!< tick interrupt priority (lowest by default) */
 #define  USE_RTOS                     0U
 
 /* ########################## Assert Selection ############################## */
