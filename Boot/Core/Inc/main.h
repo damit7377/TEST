@@ -71,6 +71,10 @@ void Error_Handler(void);
 #define OSC_OUT_GPIO_Port GPIOH
 #define TFT_NRST_Pin GPIO_PIN_7
 #define TFT_NRST_GPIO_Port GPIOE
+#define CTP_RST_Pin GPIO_PIN_9
+#define CTP_RST_GPIO_Port GPIOE
+#define CTP_INT_Pin GPIO_PIN_8
+#define CTP_INT_GPIO_Port GPIOE
 
 /* USER CODE BEGIN Private defines */
 

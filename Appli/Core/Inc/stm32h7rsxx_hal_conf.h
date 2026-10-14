@@ -51,7 +51,7 @@
 #define HAL_GPU2D_MODULE_ENABLED
 /* #define HAL_HASH_MODULE_ENABLED   */
 /* #define HAL_HCD_MODULE_ENABLED   */
-/* #define HAL_I2C_MODULE_ENABLED   */
+#define HAL_I2C_MODULE_ENABLED
 /* #define HAL_I2S_MODULE_ENABLED   */
 /* #define HAL_I3C_MODULE_ENABLED   */
 #define HAL_ICACHE_MODULE_ENABLED
@@ -175,7 +175,7 @@
   * @brief This is the HAL system configuration section
   */
 #define  VDD_VALUE                    3300UL /*!< Value of VDD in mv */
-#define  TICK_INT_PRIORITY            (15UL)/*!< tick interrupt priority (lowest by default) */
+#define  TICK_INT_PRIORITY            (4UL)/*!< HAL tick runs above the FreeRTOS syscall-priority threshold */
 #define  USE_RTOS                     0U
 
 /* ########################## Assert Selection ############################## */

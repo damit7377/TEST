@@ -69,4 +69,8 @@ void Error_Handler(void);
 #define BL_PWM_GPIO_Port GPIOF
 #define TFT_NRST_Pin GPIO_PIN_7
 #define TFT_NRST_GPIO_Port GPIOE
+#define CTP_RST_Pin GPIO_PIN_9
+#define CTP_RST_GPIO_Port GPIOE
+#define CTP_INT_Pin GPIO_PIN_8
+#define CTP_INT_GPIO_Port GPIOE
 #endif /* EXTMEMLOADER_INIT_H */

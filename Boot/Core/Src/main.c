@@ -227,7 +227,8 @@ static void MX_FLASH_Init(void)
   HAL_FLASHEx_OBGetConfig(&pOBInit);
   if ((pOBInit.USERConfig1 & OB_IWDG_SW) != OB_IWDG_SW||
 (pOBInit.USERConfig1 & OB_XSPI1_HSLV_ENABLE) != OB_XSPI1_HSLV_ENABLE||
-(pOBInit.USERConfig1 & OB_XSPI2_HSLV_ENABLE) != OB_XSPI2_HSLV_DISABLE)
+(pOBInit.USERConfig1 & OB_XSPI2_HSLV_ENABLE) != OB_XSPI2_HSLV_DISABLE||
+(pOBInit.USERConfig2 & OB_I2C_NI3C_I2C) != OB_I2C_NI3C_I2C)
   {
   if (HAL_FLASH_Unlock() != HAL_OK)
   {
@@ -239,9 +240,10 @@ static void MX_FLASH_Init(void)
   }
   pOBInit.OptionType = OPTIONBYTE_USER;
   pOBInit.USERType = OB_USER_IWDG_SW|OB_USER_XSPI1_HSLV
-                              |OB_USER_XSPI2_HSLV;
+                              |OB_USER_XSPI2_HSLV|OB_USER_I2C_NI3C;
   pOBInit.USERConfig1 = OB_IWDG_SW|OB_XSPI1_HSLV_ENABLE
                               |OB_XSPI2_HSLV_DISABLE;
+  pOBInit.USERConfig2 = OB_I2C_NI3C_I2C;
   if (HAL_FLASHEx_OBProgram(&pOBInit) != HAL_OK)
   {
     Error_Handler();
