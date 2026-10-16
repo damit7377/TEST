@@ -11,6 +11,8 @@
 #ifdef SIMULATOR
 #include <platform/driver/lcd/LCD16bpp.hpp>
 #endif
+#include <gui/mainscreen_screen/MainScreenView.hpp>
+#include <gui/mainscreen_screen/MainScreenPresenter.hpp>
 #include <gui/screen_screen/screenView.hpp>
 #include <gui/screen_screen/screenPresenter.hpp>
 
@@ -34,6 +36,19 @@ FrontendApplicationBase::FrontendApplicationBase(Model& m, FrontendHeap& heap)
 /*
  * Screen Transition Declarations
  */
+
+// MainScreen
+
+void FrontendApplicationBase::gotoMainScreenScreenNoTransition()
+{
+    transitionCallback = touchgfx::Callback<FrontendApplicationBase>(this, &FrontendApplicationBase::gotoMainScreenScreenNoTransitionImpl);
+    pendingScreenTransitionCallback = &transitionCallback;
+}
+
+void FrontendApplicationBase::gotoMainScreenScreenNoTransitionImpl()
+{
+    touchgfx::makeTransition<MainScreenView, MainScreenPresenter, touchgfx::NoTransition, Model >(&currentScreen, &currentPresenter, frontendHeap, &currentTransition, &model);
+}
 
 // screen
 

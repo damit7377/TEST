@@ -2,6 +2,44 @@
   "Application": {
     "Screens": [
       {
+        "Name": "MainScreen",
+        "Components": [
+          {
+            "Type": "Box",
+            "Name": "box1",
+            "Width": 1024,
+            "Height": 600,
+            "Color": {
+              "Green": 255,
+              "Blue": 13
+            }
+          },
+          {
+            "Type": "Image",
+            "Name": "image1",
+            "X": 480,
+            "Y": 236,
+            "Width": 64,
+            "Height": 128,
+            "RelativeFilename": "button_01_00.png",
+            "Clickable": true
+          }
+        ],
+        "Interactions": [
+          {
+            "InteractionName": "Changetoscreenview",
+            "Trigger": {
+              "Type": "TriggerNone"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionNone",
+              "ActionComponent": "screen"
+            }
+          }
+        ]
+      },
+      {
         "Name": "screen",
         "Components": [
           {
@@ -12,21 +50,11 @@
             "RelativeFilename": "HEPA_3.png"
           },
           {
-            "Type": "Button",
-            "Name": "button1",
-            "X": 960,
-            "Y": 472,
-            "Width": 64,
-            "Height": 128,
-            "Pressed": "button_01_01.png",
-            "Released": "button_01_00.png"
-          },
-          {
             "Type": "TextArea",
             "Name": "textArea1",
             "X": 882,
             "Width": 142,
-            "Height": 49,
+            "Height": 41,
             "TextId": "__SingleUse_KRNP",
             "TextRotation": "0",
             "Color": {
@@ -45,7 +73,7 @@
       "Height": 600
     },
     "SelectedColorDepth": 16,
-    "StartupScreenName": "screen",
+    "StartupScreenName": "MainScreen",
     "SelectedStartupLanguage": "GB",
     "TouchGfxPath": "../Middlewares/ST/touchgfx",
     "UIPath": ".",

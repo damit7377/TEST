@@ -16,10 +16,6 @@ screenViewBase::screenViewBase()
     image1.setBitmap(touchgfx::Bitmap(BITMAP_HEPA_3_ID));
     add(image1);
 
-    button1.setXY(960, 472);
-    button1.setBitmaps(touchgfx::Bitmap(BITMAP_BUTTON_01_00_ID), touchgfx::Bitmap(BITMAP_BUTTON_01_01_ID));
-    add(button1);
-
     textArea1.setXY(882, 0);
     textArea1.setColor(touchgfx::Color::getColorFromRGB(255, 0, 0));
     textArea1.setLinespacing(0);

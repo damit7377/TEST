@@ -301,6 +301,16 @@
 			<locationURI>PARENT-2-PROJECT_LOC/Appli/TouchGFX/gui/src/common/FrontendApplication.cpp</locationURI>
 		</link>
 		<link>
+			<name>Application/User/gui/MainScreenPresenter.cpp</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/Appli/TouchGFX/gui/src/mainscreen_screen/MainScreenPresenter.cpp</locationURI>
+		</link>
+		<link>
+			<name>Application/User/gui/MainScreenView.cpp</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/Appli/TouchGFX/gui/src/mainscreen_screen/MainScreenView.cpp</locationURI>
+		</link>
+		<link>
 			<name>Application/User/gui/Model.cpp</name>
 			<type>1</type>
 			<locationURI>PARENT-2-PROJECT_LOC/Appli/TouchGFX/gui/src/model/Model.cpp</locationURI>
@@ -404,6 +414,11 @@
 			<name>Application/User/generated/FrontendApplicationBase.cpp</name>
 			<type>1</type>
 			<locationURI>PARENT-2-PROJECT_LOC/Appli/TouchGFX/generated/gui_generated/src/common/FrontendApplicationBase.cpp</locationURI>
+		</link>
+		<link>
+			<name>Application/User/generated/MainScreenViewBase.cpp</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/Appli/TouchGFX/generated/gui_generated/src/mainscreen_screen/MainScreenViewBase.cpp</locationURI>
 		</link>
 		<link>
 			<name>Application/User/generated/screenViewBase.cpp</name>
