@@ -59,6 +59,7 @@ extern DMA2D_HandleTypeDef hdma2d;
 extern GPU2D_HandleTypeDef hgpu2d;
 extern I2C_HandleTypeDef hi2c1;
 extern LTDC_HandleTypeDef hltdc;
+extern UART_HandleTypeDef huart5;
 extern TIM_HandleTypeDef htim6;
 
 /* USER CODE BEGIN EV */
@@ -202,6 +203,20 @@ void I2C1_ER_IRQHandler(void)
   /* USER CODE BEGIN I2C1_ER_IRQn 1 */
 
   /* USER CODE END I2C1_ER_IRQn 1 */
+}
+
+/**
+  * @brief This function handles UART5 global interrupt.
+  */
+void UART5_IRQHandler(void)
+{
+  /* USER CODE BEGIN UART5_IRQn 0 */
+
+  /* USER CODE END UART5_IRQn 0 */
+  HAL_UART_IRQHandler(&huart5);
+  /* USER CODE BEGIN UART5_IRQn 1 */
+
+  /* USER CODE END UART5_IRQn 1 */
 }
 
 /**

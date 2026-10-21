@@ -24,6 +24,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "uart_echo.h"
 
 /* USER CODE END Includes */
 
@@ -67,6 +68,8 @@ LTDC_HandleTypeDef hltdc;
 
 TIM_HandleTypeDef htim13;
 
+UART_HandleTypeDef huart5;
+
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
@@ -83,6 +86,7 @@ const osThreadAttr_t TouchGFXTask_attributes = {
 };
 /* USER CODE BEGIN PV */
 extern uint8_t __lcd_framebuffer_start__[];
+static UART_EchoHandleTypeDef uart5Echo;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -96,6 +100,7 @@ static void MX_TIM13_Init(void);
 static void MX_ICACHE_GPU2D_Init(void);
 static void MX_FLASH_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_UART5_Init(void);
 void StartDefaultTask(void *argument);
 extern void TouchGFX_Task(void *argument);
 
@@ -232,10 +237,15 @@ int main(void)
   MX_ICACHE_GPU2D_Init();
   MX_FLASH_Init();
   MX_I2C1_Init();
+  MX_UART5_Init();
   MX_TouchGFX_Init();
   /* Call PreOsInit function */
   MX_TouchGFX_PreOSInit();
   /* USER CODE BEGIN 2 */
+  if (UART_Echo_Init(&uart5Echo, &huart5) != HAL_OK)
+  {
+    Error_Handler();
+  }
   LCD_FillColor(RGB565_WHITE);
   // APP_RunColorCycleTest();
   /* USER CODE END 2 */
@@ -629,6 +639,54 @@ static void MX_TIM13_Init(void)
 }
 
 /**
+  * @brief UART5 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_UART5_Init(void)
+{
+
+  /* USER CODE BEGIN UART5_Init 0 */
+
+  /* USER CODE END UART5_Init 0 */
+
+  /* USER CODE BEGIN UART5_Init 1 */
+
+  /* USER CODE END UART5_Init 1 */
+  huart5.Instance = UART5;
+  huart5.Init.BaudRate = 115200;
+  huart5.Init.WordLength = UART_WORDLENGTH_8B;
+  huart5.Init.StopBits = UART_STOPBITS_1;
+  huart5.Init.Parity = UART_PARITY_NONE;
+  huart5.Init.Mode = UART_MODE_TX_RX;
+  huart5.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart5.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart5.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart5.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  huart5.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&huart5, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&huart5, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_DisableFifoMode(&huart5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN UART5_Init 2 */
+
+  /* USER CODE END UART5_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -641,8 +699,8 @@ static void MX_GPIO_Init(void)
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOG_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOG_CLK_ENABLE();
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOF_CLK_ENABLE();
@@ -697,6 +755,21 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   {
     CTP_InterruptPending = 1U;
   }
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  UART_Echo_RxCpltCallback(&uart5Echo, huart);
+}
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+  UART_Echo_TxCpltCallback(&uart5Echo, huart);
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+  UART_Echo_ErrorCallback(&uart5Echo, huart);
 }
 /* USER CODE END 4 */
 
