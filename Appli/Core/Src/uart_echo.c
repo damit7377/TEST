@@ -1,28 +1,9 @@
 #include "uart_echo.h"
+#include <string.h>
 
-static uint16_t UART_Echo_NextIndex(uint16_t index)
+static HAL_StatusTypeDef UART_Echo_StartReceive(UART_EchoHandleTypeDef *echo)
 {
-    index++;
-    return (index >= UART_ECHO_BUFFER_SIZE) ? 0U : index;
-}
-
-static void UART_Echo_StartTransmit(UART_EchoHandleTypeDef *echo)
-{
-    if ((echo->txBusy != 0U) || (echo->head == echo->tail))
-    {
-        return;
-    }
-
-    echo->txByte = echo->buffer[echo->tail];
-    echo->txBusy = 1U;
-    if (HAL_UART_Transmit_IT(echo->uart, &echo->txByte, 1U) == HAL_OK)
-    {
-        echo->tail = UART_Echo_NextIndex(echo->tail);
-    }
-    else
-    {
-        echo->txBusy = 0U;
-    }
+    return HAL_UART_Receive_IT(echo->uart, echo->buffer, UART_ECHO_RX_LENGTH);
 }
 
 HAL_StatusTypeDef UART_Echo_Init(UART_EchoHandleTypeDef *echo, UART_HandleTypeDef *uart)
@@ -33,12 +14,12 @@ HAL_StatusTypeDef UART_Echo_Init(UART_EchoHandleTypeDef *echo, UART_HandleTypeDe
     }
 
     echo->uart = uart;
-    echo->head = 0U;
-    echo->tail = 0U;
-    echo->txBusy = 0U;
+    echo->packetReady = 0U;
     echo->droppedBytes = 0U;
+    echo->errorCount = 0U;
+    echo->lastError = HAL_UART_ERROR_NONE;
 
-    return HAL_UART_Receive_IT(echo->uart, &echo->rxByte, 1U);
+    return UART_Echo_StartReceive(echo);
 }
 
 void UART_Echo_RxCpltCallback(UART_EchoHandleTypeDef *echo, UART_HandleTypeDef *uart)
@@ -48,30 +29,36 @@ void UART_Echo_RxCpltCallback(UART_EchoHandleTypeDef *echo, UART_HandleTypeDef *
         return;
     }
 
-    uint16_t nextHead = UART_Echo_NextIndex(echo->head);
-    if (nextHead != echo->tail)
+    if (echo->packetReady == 0U)
     {
-        echo->buffer[echo->head] = echo->rxByte;
-        echo->head = nextHead;
+        memcpy(echo->txBuffer, echo->buffer, UART_ECHO_RX_LENGTH);
+        echo->packetReady = 1U;
     }
     else
     {
-        echo->droppedBytes++;
+        echo->droppedBytes += UART_ECHO_RX_LENGTH;
     }
 
-    (void)HAL_UART_Receive_IT(echo->uart, &echo->rxByte, 1U);
-    UART_Echo_StartTransmit(echo);
+    if (UART_Echo_StartReceive(echo) != HAL_OK)
+    {
+        echo->errorCount++;
+        echo->lastError = HAL_UART_GetError(echo->uart);
+    }
 }
 
-void UART_Echo_TxCpltCallback(UART_EchoHandleTypeDef *echo, UART_HandleTypeDef *uart)
+void UART_Echo_Process(UART_EchoHandleTypeDef *echo)
 {
-    if ((echo == NULL) || (uart != echo->uart))
+    if ((echo == NULL) || (echo->packetReady == 0U))
     {
         return;
     }
 
-    echo->txBusy = 0U;
-    UART_Echo_StartTransmit(echo);
+    if (HAL_UART_Transmit(echo->uart, echo->txBuffer, UART_ECHO_RX_LENGTH, UART_ECHO_TX_TIMEOUT_MS) != HAL_OK)
+    {
+        echo->droppedBytes += UART_ECHO_RX_LENGTH;
+    }
+
+    echo->packetReady = 0U;
 }
 
 void UART_Echo_ErrorCallback(UART_EchoHandleTypeDef *echo, UART_HandleTypeDef *uart)
@@ -81,6 +68,11 @@ void UART_Echo_ErrorCallback(UART_EchoHandleTypeDef *echo, UART_HandleTypeDef *u
         return;
     }
 
-    (void)HAL_UART_Receive_IT(echo->uart, &echo->rxByte, 1U);
-    UART_Echo_StartTransmit(echo);
+    echo->lastError = HAL_UART_GetError(uart);
+    echo->errorCount++;
+
+    if (uart->RxState == HAL_UART_STATE_READY)
+    {
+        (void)UART_Echo_StartReceive(echo);
+    }
 }

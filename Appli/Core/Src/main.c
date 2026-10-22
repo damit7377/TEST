@@ -69,6 +69,7 @@ LTDC_HandleTypeDef hltdc;
 TIM_HandleTypeDef htim13;
 
 UART_HandleTypeDef huart5;
+UART_HandleTypeDef huart8;
 
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -87,6 +88,7 @@ const osThreadAttr_t TouchGFXTask_attributes = {
 /* USER CODE BEGIN PV */
 extern uint8_t __lcd_framebuffer_start__[];
 static UART_EchoHandleTypeDef uart5Echo;
+static UART_EchoHandleTypeDef uart8Echo;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -101,6 +103,7 @@ static void MX_ICACHE_GPU2D_Init(void);
 static void MX_FLASH_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_UART5_Init(void);
+static void MX_UART8_Init(void);
 void StartDefaultTask(void *argument);
 extern void TouchGFX_Task(void *argument);
 
@@ -238,11 +241,16 @@ int main(void)
   MX_FLASH_Init();
   MX_I2C1_Init();
   MX_UART5_Init();
+  MX_UART8_Init();
   MX_TouchGFX_Init();
   /* Call PreOsInit function */
   MX_TouchGFX_PreOSInit();
   /* USER CODE BEGIN 2 */
   if (UART_Echo_Init(&uart5Echo, &huart5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (UART_Echo_Init(&uart8Echo, &huart8) != HAL_OK)
   {
     Error_Handler();
   }
@@ -676,13 +684,67 @@ static void MX_UART5_Init(void)
   {
     Error_Handler();
   }
-  if (HAL_UARTEx_DisableFifoMode(&huart5) != HAL_OK)
+  if (HAL_UARTEx_EnableFifoMode(&huart5) != HAL_OK)
   {
     Error_Handler();
   }
   /* USER CODE BEGIN UART5_Init 2 */
-
+  if (HAL_UARTEx_EnableFifoMode(&huart5) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE END UART5_Init 2 */
+
+}
+
+/**
+  * @brief UART8 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_UART8_Init(void)
+{
+
+  /* USER CODE BEGIN UART8_Init 0 */
+
+  /* USER CODE END UART8_Init 0 */
+
+  /* USER CODE BEGIN UART8_Init 1 */
+
+  /* USER CODE END UART8_Init 1 */
+  huart8.Instance = UART8;
+  huart8.Init.BaudRate = 115200;
+  huart8.Init.WordLength = UART_WORDLENGTH_8B;
+  huart8.Init.StopBits = UART_STOPBITS_1;
+  huart8.Init.Parity = UART_PARITY_NONE;
+  huart8.Init.Mode = UART_MODE_TX_RX;
+  huart8.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart8.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart8.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart8.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  huart8.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&huart8, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&huart8, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_EnableFifoMode(&huart8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN UART8_Init 2 */
+  if (HAL_UARTEx_EnableFifoMode(&huart8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE END UART8_Init 2 */
 
 }
 
@@ -699,9 +761,9 @@ static void MX_GPIO_Init(void)
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOG_CLK_ENABLE();
-  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPION_CLK_ENABLE();
@@ -759,17 +821,26 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-  UART_Echo_RxCpltCallback(&uart5Echo, huart);
-}
-
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
-{
-  UART_Echo_TxCpltCallback(&uart5Echo, huart);
+  if (huart == &huart5)
+  {
+    UART_Echo_RxCpltCallback(&uart5Echo, huart);
+  }
+  else if (huart == &huart8)
+  {
+    UART_Echo_RxCpltCallback(&uart8Echo, huart);
+  }
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
-  UART_Echo_ErrorCallback(&uart5Echo, huart);
+  if (huart == &huart5)
+  {
+    UART_Echo_ErrorCallback(&uart5Echo, huart);
+  }
+  else if (huart == &huart8)
+  {
+    UART_Echo_ErrorCallback(&uart8Echo, huart);
+  }
 }
 /* USER CODE END 4 */
 
@@ -786,6 +857,8 @@ void StartDefaultTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
+    UART_Echo_Process(&uart5Echo);
+    UART_Echo_Process(&uart8Echo);
     osDelay(1);
   }
   /* USER CODE END 5 */

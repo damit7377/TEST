@@ -246,16 +246,6 @@
 			<locationURI>PARENT-2-PROJECT_LOC/Appli/Core/Src/main.c</locationURI>
 		</link>
 		<link>
-			<name>Application/User/Core/uart_echo.c</name>
-			<type>1</type>
-			<locationURI>PARENT-2-PROJECT_LOC/Appli/Core/Src/uart_echo.c</locationURI>
-		</link>
-		<link>
-			<name>Application/User/Core/uart_echo.h</name>
-			<type>1</type>
-			<locationURI>PARENT-2-PROJECT_LOC/Appli/Core/Inc/uart_echo.h</locationURI>
-		</link>
-		<link>
 			<name>Application/User/Core/stm32h7rsxx_hal_msp.c</name>
 			<type>1</type>
 			<locationURI>PARENT-2-PROJECT_LOC/Appli/Core/Src/stm32h7rsxx_hal_msp.c</locationURI>
@@ -269,6 +259,16 @@
 			<name>Application/User/Core/stm32h7rsxx_it.c</name>
 			<type>1</type>
 			<locationURI>PARENT-2-PROJECT_LOC/Appli/Core/Src/stm32h7rsxx_it.c</locationURI>
+		</link>
+		<link>
+			<name>Application/User/Core/uart_echo.c</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/Appli/Core/Src/uart_echo.c</locationURI>
+		</link>
+		<link>
+			<name>Application/User/Core/uart_echo.h</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/Appli/Core/Inc/uart_echo.h</locationURI>
 		</link>
 		<link>
 			<name>Application/User/generated/ApplicationFontProvider.cpp</name>
