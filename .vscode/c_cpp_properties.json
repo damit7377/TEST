@@ -1,0 +1,49 @@
+{
+    "configurations": [
+        {
+            "name": "STM32H7R7",
+            "compilerPath": "C:/ST/STM32CubeIDE_2.0.0/STM32CubeIDE_2.1.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.win32_1.0.100.202602081740/tools/bin/arm-none-eabi-gcc.exe",
+            "compilerArgs": [
+                "-mcpu=cortex-m7",
+                "-mfpu=fpv5-d16",
+                "-mfloat-abi=hard",
+                "-mthumb"
+            ],
+            "defines": [
+                "DEBUG",
+                "USE_HAL_DRIVER",
+                "STM32H7R7xx"
+            ],
+            "includePath": [
+                "${workspaceFolder}/Appli/Core/Inc",
+                "${workspaceFolder}/Drivers/STM32H7RSxx_HAL_Driver/Inc",
+                "${workspaceFolder}/Drivers/STM32H7RSxx_HAL_Driver/Inc/Legacy",
+                "${workspaceFolder}/Drivers/CMSIS/Device/ST/STM32H7RSxx/Include",
+                "${workspaceFolder}/Drivers/CMSIS/Include",
+                "${workspaceFolder}/Drivers/CMSIS/RTOS2/Include",
+                "${workspaceFolder}/Appli/TouchGFX/App",
+                "${workspaceFolder}/Appli/TouchGFX/target/generated",
+                "${workspaceFolder}/Appli/TouchGFX/target",
+                "${workspaceFolder}/Appli/TouchGFX/generated/**",
+                "${workspaceFolder}/Appli/TouchGFX/gui/include",
+                "${workspaceFolder}/Appli/Middlewares/ST/touchgfx/framework/include",
+                "${workspaceFolder}/Appli/Middlewares/ST/touchgfx_components/**",
+                "${workspaceFolder}/Middlewares/Third_Party/FreeRTOS/Source/include",
+                "${workspaceFolder}/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2",
+                "${workspaceFolder}/Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F"
+            ],
+            "browse": {
+                "path": [
+                    "${workspaceFolder}/Appli",
+                    "${workspaceFolder}/Drivers",
+                    "${workspaceFolder}/Middlewares"
+                ],
+                "limitSymbolsToIncludedHeaders": false
+            },
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "gcc-arm"
+        }
+    ],
+    "version": 4
+}

@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "string.h"
 #include "FreeRTOS.h"
 #include "cmsis_os2.h"
 #include "app_touchgfx.h"
@@ -30,6 +31,14 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+#define ETH_LOOPBACK_RX_BUFFER_SIZE 96U
+
+typedef struct
+{
+  uint8_t data[ETH_LOOPBACK_RX_BUFFER_SIZE];
+  ETH_BufferTypeDef link;
+  volatile uint8_t inUse;
+} ETH_LoopbackRxBufferTypeDef;
 
 /* USER CODE END PTD */
 
@@ -43,6 +52,12 @@
 #define RGB565_RED      0xF800U
 #define RGB565_WHITE    0xFFFFU
 
+#define ETH_LOOPBACK_FRAME_SIZE       60U
+#define ETH_LOOPBACK_RX_POOL_SIZE     (ETH_RX_DESC_CNT + 1U)
+#define ETH_LOOPBACK_ETHERTYPE        0x88B5U
+#define ETH_LOOPBACK_TX_PERIOD_MS     1000U
+#define ETH_LOOPBACK_TX_TIMEOUT_MS    100U
+
 /* Backlight control definitions (from ref_code) */
 #define MAX_BRIGHTNESS_DUTY    92
 #define MIN_BRIGHTNESS_DUTY    20
@@ -55,10 +70,30 @@ volatile uint8_t CTP_InterruptPending;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+#if defined ( __ICCARM__ ) /*!< IAR Compiler */
+#pragma location=0x24020000
+ETH_DMADescTypeDef  DMARxDscrTab[ETH_RX_DESC_CNT]; /* Ethernet Rx DMA Descriptors */
+#pragma location=0x24020080
+ETH_DMADescTypeDef  DMATxDscrTab[ETH_TX_DESC_CNT]; /* Ethernet Tx DMA Descriptors */
+
+#elif defined ( __CC_ARM )  /* MDK ARM Compiler */
+
+__attribute__((at(0x24020000))) ETH_DMADescTypeDef  DMARxDscrTab[ETH_RX_DESC_CNT]; /* Ethernet Rx DMA Descriptors */
+__attribute__((at(0x24020080))) ETH_DMADescTypeDef  DMATxDscrTab[ETH_TX_DESC_CNT]; /* Ethernet Tx DMA Descriptors */
+
+#elif (defined ( __GNUC__ ) || defined ( __ARMCC_VERSION )) /* GNU Compiler */
+
+ETH_DMADescTypeDef DMARxDscrTab[ETH_RX_DESC_CNT] __attribute__((section("noncacheable_buffer"), aligned(32))); /* Ethernet Rx DMA Descriptors */
+ETH_DMADescTypeDef DMATxDscrTab[ETH_TX_DESC_CNT] __attribute__((section("noncacheable_buffer"), aligned(32))); /* Ethernet Tx DMA Descriptors */
+#endif
+
+ETH_TxPacketConfigTypeDef TxConfig;
 
 CRC_HandleTypeDef hcrc;
 
 DMA2D_HandleTypeDef hdma2d;
+
+ETH_HandleTypeDef heth;
 
 GPU2D_HandleTypeDef hgpu2d;
 
@@ -87,6 +122,25 @@ const osThreadAttr_t TouchGFXTask_attributes = {
 };
 /* USER CODE BEGIN PV */
 extern uint8_t __lcd_framebuffer_start__[];
+static ETH_LoopbackRxBufferTypeDef ethLoopbackRxPool[ETH_LOOPBACK_RX_POOL_SIZE]
+  __attribute__((section("noncacheable_buffer"), aligned(32)));
+static uint8_t ethLoopbackTxFrame[ETH_LOOPBACK_FRAME_SIZE]
+  __attribute__((section("noncacheable_buffer"), aligned(32)));
+static uint32_t ethLoopbackLastTxTick;
+static uint32_t ethLoopbackSequence;
+volatile uint32_t ethLoopbackInitStatus;
+volatile uint32_t ethLoopbackTxAttempts;
+volatile uint32_t ethLoopbackTxSuccess;
+volatile uint32_t ethLoopbackTxErrors;
+volatile uint32_t ethLoopbackRxFrames;
+volatile uint32_t ethLoopbackRxPass;
+volatile uint32_t ethLoopbackRxCompareErrors;
+volatile uint32_t ethLoopbackRxAllocErrors;
+volatile uint32_t ethLoopbackLastTxSequence;
+volatile uint32_t ethLoopbackLastRxSequence;
+volatile uint32_t ethLoopbackLastRxLength;
+volatile uint32_t ethLoopbackLastHalStatus;
+volatile uint32_t ethLoopbackLastEthError;
 static UART_EchoHandleTypeDef uart5Echo;
 static UART_EchoHandleTypeDef uart8Echo;
 /* USER CODE END PV */
@@ -104,6 +158,7 @@ static void MX_FLASH_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_UART5_Init(void);
 static void MX_UART8_Init(void);
+static void MX_ETH_Init(void);
 void StartDefaultTask(void *argument);
 extern void TouchGFX_Task(void *argument);
 
@@ -111,10 +166,146 @@ extern void TouchGFX_Task(void *argument);
 static void LCD_FillColor(uint16_t color);
 static void APP_FillFrameBuffer(uint16_t color);
 static void APP_RunColorCycleTest(void);
+static HAL_StatusTypeDef ETH_Loopback_Init(void);
+static void ETH_Loopback_Process(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static void ETH_Loopback_ReleaseRxBuffers(ETH_BufferTypeDef *buffer)
+{
+  ETH_BufferTypeDef *next;
+
+  while (buffer != NULL)
+  {
+    next = buffer->next;
+    for (uint32_t index = 0U; index < ETH_LOOPBACK_RX_POOL_SIZE; index++)
+    {
+      if (&ethLoopbackRxPool[index].link == buffer)
+      {
+        ethLoopbackRxPool[index].inUse = 0U;
+        break;
+      }
+    }
+    buffer = next;
+  }
+}
+
+static HAL_StatusTypeDef ETH_Loopback_Transmit(void)
+{
+  static const uint8_t testPattern[] = "MAC_LOOPBACK";
+  ETH_BufferTypeDef txBuffer = {0};
+  ETH_TxPacketConfigTypeDef txConfig = {0};
+  HAL_StatusTypeDef status;
+
+  memset(ethLoopbackTxFrame, 0, sizeof(ethLoopbackTxFrame));
+  memcpy(&ethLoopbackTxFrame[0], heth.Init.MACAddr, 6U);
+  memcpy(&ethLoopbackTxFrame[6], heth.Init.MACAddr, 6U);
+  ethLoopbackTxFrame[12] = (uint8_t)(ETH_LOOPBACK_ETHERTYPE >> 8);
+  ethLoopbackTxFrame[13] = (uint8_t)ETH_LOOPBACK_ETHERTYPE;
+  memcpy(&ethLoopbackTxFrame[14], testPattern, sizeof(testPattern));
+  memcpy(&ethLoopbackTxFrame[32], &ethLoopbackSequence, sizeof(ethLoopbackSequence));
+
+  txBuffer.buffer = ethLoopbackTxFrame;
+  txBuffer.len = sizeof(ethLoopbackTxFrame);
+  txConfig.Attributes = ETH_TX_PACKETS_FEATURES_CRCPAD;
+  txConfig.Length = sizeof(ethLoopbackTxFrame);
+  txConfig.TxBuffer = &txBuffer;
+  txConfig.CRCPadCtrl = ETH_CRC_PAD_INSERT;
+
+  ethLoopbackTxAttempts++;
+  ethLoopbackLastTxSequence = ethLoopbackSequence;
+  status = HAL_ETH_Transmit(&heth, &txConfig, ETH_LOOPBACK_TX_TIMEOUT_MS);
+  ethLoopbackLastHalStatus = status;
+  ethLoopbackLastEthError = heth.ErrorCode;
+  if (status == HAL_OK)
+  {
+    ethLoopbackTxSuccess++;
+    ethLoopbackSequence++;
+  }
+  else
+  {
+    ethLoopbackTxErrors++;
+  }
+
+  return status;
+}
+
+static void ETH_Loopback_ProcessRx(void)
+{
+  static const uint8_t testPattern[] = "MAC_LOOPBACK";
+  ETH_BufferTypeDef *packet = NULL;
+  uint32_t receivedSequence;
+
+  while (HAL_ETH_ReadData(&heth, (void **)&packet) == HAL_OK)
+  {
+    ethLoopbackRxFrames++;
+    ethLoopbackLastRxLength = packet->len;
+
+    if ((packet->len >= 36U) &&
+        (packet->buffer[12] == (uint8_t)(ETH_LOOPBACK_ETHERTYPE >> 8)) &&
+        (packet->buffer[13] == (uint8_t)ETH_LOOPBACK_ETHERTYPE) &&
+        (memcmp(&packet->buffer[14], testPattern, sizeof(testPattern)) == 0))
+    {
+      memcpy(&receivedSequence, &packet->buffer[32], sizeof(receivedSequence));
+      ethLoopbackLastRxSequence = receivedSequence;
+      if (receivedSequence == ethLoopbackLastTxSequence)
+      {
+        ethLoopbackRxPass++;
+      }
+      else
+      {
+        ethLoopbackRxCompareErrors++;
+      }
+    }
+    else
+    {
+      ethLoopbackRxCompareErrors++;
+    }
+
+    ETH_Loopback_ReleaseRxBuffers(packet);
+    packet = NULL;
+  }
+}
+
+static HAL_StatusTypeDef ETH_Loopback_Init(void)
+{
+  ETH_MACConfigTypeDef macConfig;
+  HAL_StatusTypeDef status;
+
+  memset(ethLoopbackRxPool, 0, sizeof(ethLoopbackRxPool));
+
+  status = HAL_ETH_GetMACConfig(&heth, &macConfig);
+  if (status == HAL_OK)
+  {
+    macConfig.LoopbackMode = ENABLE;
+    macConfig.DuplexMode = ETH_FULLDUPLEX_MODE;
+    status = HAL_ETH_SetMACConfig(&heth, &macConfig);
+  }
+  if (status == HAL_OK)
+  {
+    status = HAL_ETH_Start(&heth);
+  }
+
+  ethLoopbackInitStatus = status;
+  ethLoopbackLastHalStatus = status;
+  ethLoopbackLastEthError = heth.ErrorCode;
+  ethLoopbackLastTxTick = HAL_GetTick();
+  return status;
+}
+
+static void ETH_Loopback_Process(void)
+{
+  uint32_t now = HAL_GetTick();
+
+  ETH_Loopback_ProcessRx();
+  if ((now - ethLoopbackLastTxTick) >= ETH_LOOPBACK_TX_PERIOD_MS)
+  {
+    ethLoopbackLastTxTick = now;
+    (void)ETH_Loopback_Transmit();
+  }
+}
+
 static void Set_Brightness_Duty(uint8_t duty)
 {
   duty = (duty > 100) ? 100 : duty;
@@ -242,6 +433,7 @@ int main(void)
   MX_I2C1_Init();
   MX_UART5_Init();
   MX_UART8_Init();
+  MX_ETH_Init();
   MX_TouchGFX_Init();
   /* Call PreOsInit function */
   MX_TouchGFX_PreOSInit();
@@ -251,6 +443,10 @@ int main(void)
     Error_Handler();
   }
   if (UART_Echo_Init(&uart8Echo, &huart8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (ETH_Loopback_Init() != HAL_OK)
   {
     Error_Handler();
   }
@@ -376,6 +572,50 @@ static void MX_DMA2D_Init(void)
   /* USER CODE BEGIN DMA2D_Init 2 */
 
   /* USER CODE END DMA2D_Init 2 */
+
+}
+
+/**
+  * @brief ETH Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ETH_Init(void)
+{
+
+  /* USER CODE BEGIN ETH_Init 0 */
+
+  /* USER CODE END ETH_Init 0 */
+
+   static uint8_t MACAddr[6];
+
+  /* USER CODE BEGIN ETH_Init 1 */
+
+  /* USER CODE END ETH_Init 1 */
+  heth.Instance = ETH;
+  MACAddr[0] = 0x00;
+  MACAddr[1] = 0x80;
+  MACAddr[2] = 0xE1;
+  MACAddr[3] = 0x00;
+  MACAddr[4] = 0x00;
+  MACAddr[5] = 0x00;
+  heth.Init.MACAddr = &MACAddr[0];
+  heth.Init.MediaInterface = HAL_ETH_RMII_MODE;
+  heth.Init.TxDesc = DMATxDscrTab;
+  heth.Init.RxDesc = DMARxDscrTab;
+  heth.Init.RxBuffLen = ETH_LOOPBACK_RX_BUFFER_SIZE;
+
+  /* USER CODE BEGIN MACADDRESS */
+
+  /* USER CODE END MACADDRESS */
+
+  if (HAL_ETH_Init(&heth) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ETH_Init 2 */
+
+  /* USER CODE END ETH_Init 2 */
 
 }
 
@@ -763,11 +1003,12 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOG_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPION_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOE, TFT_EN_Pin|TFT_SETB_Pin|TFT_NRST_Pin|CTP_RST_Pin, GPIO_PIN_RESET);
@@ -811,6 +1052,53 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_ETH_RxAllocateCallback(uint8_t **buffer)
+{
+  *buffer = NULL;
+  for (uint32_t index = 0U; index < ETH_LOOPBACK_RX_POOL_SIZE; index++)
+  {
+    if (ethLoopbackRxPool[index].inUse == 0U)
+    {
+      ethLoopbackRxPool[index].inUse = 1U;
+      *buffer = ethLoopbackRxPool[index].data;
+      return;
+    }
+  }
+  ethLoopbackRxAllocErrors++;
+}
+
+void HAL_ETH_RxLinkCallback(void **start, void **end, uint8_t *buffer, uint16_t length)
+{
+  ETH_BufferTypeDef *link = NULL;
+
+  for (uint32_t index = 0U; index < ETH_LOOPBACK_RX_POOL_SIZE; index++)
+  {
+    if (ethLoopbackRxPool[index].data == buffer)
+    {
+      link = &ethLoopbackRxPool[index].link;
+      break;
+    }
+  }
+  if (link == NULL)
+  {
+    ethLoopbackRxAllocErrors++;
+    return;
+  }
+
+  link->buffer = buffer;
+  link->len = length;
+  link->next = NULL;
+  if (*start == NULL)
+  {
+    *start = link;
+  }
+  else
+  {
+    ((ETH_BufferTypeDef *)*end)->next = link;
+  }
+  *end = link;
+}
+
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   if (GPIO_Pin == CTP_INT_Pin)
@@ -857,6 +1145,7 @@ void StartDefaultTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
+    ETH_Loopback_Process();
     UART_Echo_Process(&uart5Echo);
     UART_Echo_Process(&uart8Echo);
     osDelay(1);
@@ -913,6 +1202,19 @@ static void MPU_Config(void)
   MPU_InitStruct.Size = MPU_REGION_SIZE_32MB;
   MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
   MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
+
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  MPU_InitStruct.Number = MPU_REGION_NUMBER3;
+  MPU_InitStruct.BaseAddress = 0x24071C00;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_1KB;
+  MPU_InitStruct.SubRegionDisable = 0x0;
+  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL1;
+  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_SHAREABLE;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
   /* Enables the MPU */
