@@ -57,6 +57,24 @@ typedef struct
 #define ETH_LOOPBACK_ETHERTYPE        0x88B5U
 #define ETH_LOOPBACK_TX_PERIOD_MS     1000U
 #define ETH_LOOPBACK_TX_TIMEOUT_MS    100U
+#define ETH_LOOPBACK_MODE_MAC         1U
+#define ETH_LOOPBACK_MODE_PHY         2U
+#ifndef ETH_LOOPBACK_TEST_MODE
+#define ETH_LOOPBACK_TEST_MODE        ETH_LOOPBACK_MODE_PHY
+#endif
+
+#define LAN8742_BMCR                  0U
+#define LAN8742_PHYID1                2U
+#define LAN8742_PHYID2                3U
+#define LAN8742_PHYID1_VALUE          0x0007U
+#define LAN8742_PHYID2_MASK           0xFFF0U
+#define LAN8742_PHYID2_VALUE          0xC130U
+#define LAN8742_BMCR_LOOPBACK         (1U << 14)
+#define LAN8742_BMCR_SPEED_100M       (1U << 13)
+#define LAN8742_BMCR_FULL_DUPLEX      (1U << 8)
+#define LAN8742_BMCR_LOOPBACK_100FD   (LAN8742_BMCR_LOOPBACK | \
+                                       LAN8742_BMCR_SPEED_100M | \
+                                       LAN8742_BMCR_FULL_DUPLEX)
 
 /* Backlight control definitions (from ref_code) */
 #define MAX_BRIGHTNESS_DUTY    92
@@ -145,6 +163,11 @@ volatile uint32_t ethLoopbackLastRxSequence;
 volatile uint32_t ethLoopbackLastRxLength;
 volatile uint32_t ethLoopbackLastHalStatus;
 volatile uint32_t ethLoopbackLastEthError;
+volatile uint32_t ethLoopbackActiveMode;
+volatile uint32_t ethPhyAddress = 0xFFFFFFFFU;
+volatile uint32_t ethPhyId1;
+volatile uint32_t ethPhyId2;
+volatile uint32_t ethPhyBmcr;
 static UART_EchoHandleTypeDef uart5Echo;
 static UART_EchoHandleTypeDef uart8Echo;
 /* USER CODE END PV */
@@ -170,7 +193,8 @@ extern void TouchGFX_Task(void *argument);
 static void LCD_FillColor(uint16_t color);
 static void APP_FillFrameBuffer(uint16_t color);
 static void APP_RunColorCycleTest(void);
-static HAL_StatusTypeDef ETH_Loopback_Init(void);
+static HAL_StatusTypeDef ETH_MAC_Loopback_Init(void);
+static HAL_StatusTypeDef ETH_PHY_Loopback_Init(void);
 static void ETH_Loopback_Process(void);
 /* USER CODE END PFP */
 
@@ -197,7 +221,7 @@ static void ETH_Loopback_ReleaseRxBuffers(ETH_BufferTypeDef *buffer)
 
 static HAL_StatusTypeDef ETH_Loopback_Transmit(void)
 {
-  static const uint8_t testPattern[] = "MAC_LOOPBACK";
+  static const uint8_t testPattern[] = "ETH_LOOPBACK";
   ETH_BufferTypeDef txBuffer = {0};
   ETH_TxPacketConfigTypeDef txConfig = {0};
   HAL_StatusTypeDef status;
@@ -237,7 +261,7 @@ static HAL_StatusTypeDef ETH_Loopback_Transmit(void)
 
 static void ETH_Loopback_ProcessRx(void)
 {
-  static const uint8_t testPattern[] = "MAC_LOOPBACK";
+  static const uint8_t testPattern[] = "ETH_LOOPBACK";
   ETH_BufferTypeDef *packet = NULL;
   uint32_t receivedSequence;
 
@@ -272,9 +296,8 @@ static void ETH_Loopback_ProcessRx(void)
   }
 }
 
-static HAL_StatusTypeDef ETH_Loopback_Init(void)
+static HAL_StatusTypeDef ETH_Loopback_CommonInit(ETH_MACConfigTypeDef *macConfig)
 {
-  ETH_MACConfigTypeDef macConfig;
   HAL_StatusTypeDef status;
 
   heth.Init.RxDesc = ethLoopbackRxDesc;
@@ -286,8 +309,25 @@ static HAL_StatusTypeDef ETH_Loopback_Init(void)
 
   if (status == HAL_OK)
   {
-    status = HAL_ETH_GetMACConfig(&heth, &macConfig);
+    status = HAL_ETH_GetMACConfig(&heth, macConfig);
   }
+
+  return status;
+}
+
+static void ETH_Loopback_SaveInitStatus(HAL_StatusTypeDef status)
+{
+  ethLoopbackInitStatus = status;
+  ethLoopbackLastHalStatus = status;
+  ethLoopbackLastEthError = heth.ErrorCode;
+  ethLoopbackLastTxTick = HAL_GetTick();
+}
+
+static HAL_StatusTypeDef ETH_MAC_Loopback_Init(void)
+{
+  ETH_MACConfigTypeDef macConfig;
+  HAL_StatusTypeDef status = ETH_Loopback_CommonInit(&macConfig);
+
   if (status == HAL_OK)
   {
     macConfig.LoopbackMode = ENABLE;
@@ -299,10 +339,74 @@ static HAL_StatusTypeDef ETH_Loopback_Init(void)
     status = HAL_ETH_Start(&heth);
   }
 
-  ethLoopbackInitStatus = status;
-  ethLoopbackLastHalStatus = status;
-  ethLoopbackLastEthError = heth.ErrorCode;
-  ethLoopbackLastTxTick = HAL_GetTick();
+  ethLoopbackActiveMode = ETH_LOOPBACK_MODE_MAC;
+  ETH_Loopback_SaveInitStatus(status);
+  return status;
+}
+
+static HAL_StatusTypeDef ETH_PHY_FindAddress(uint32_t *phyAddress)
+{
+  uint32_t id1;
+  uint32_t id2;
+
+  for (uint32_t address = 0U; address <= 1U; address++)
+  {
+    if ((HAL_ETH_ReadPHYRegister(&heth, address, LAN8742_PHYID1, &id1) == HAL_OK) &&
+        (HAL_ETH_ReadPHYRegister(&heth, address, LAN8742_PHYID2, &id2) == HAL_OK) &&
+        (id1 == LAN8742_PHYID1_VALUE) &&
+        ((id2 & LAN8742_PHYID2_MASK) == LAN8742_PHYID2_VALUE))
+    {
+      *phyAddress = address;
+      ethPhyId1 = id1;
+      ethPhyId2 = id2;
+      return HAL_OK;
+    }
+  }
+
+  return HAL_ERROR;
+}
+
+static HAL_StatusTypeDef ETH_PHY_Loopback_Init(void)
+{
+  ETH_MACConfigTypeDef macConfig;
+  uint32_t phyAddress;
+  uint32_t bmcr;
+  HAL_StatusTypeDef status = ETH_Loopback_CommonInit(&macConfig);
+
+  if (status == HAL_OK)
+  {
+    status = ETH_PHY_FindAddress(&phyAddress);
+  }
+  if (status == HAL_OK)
+  {
+    ethPhyAddress = phyAddress;
+    macConfig.LoopbackMode = DISABLE;
+    macConfig.Speed = ETH_SPEED_100M;
+    macConfig.DuplexMode = ETH_FULLDUPLEX_MODE;
+    status = HAL_ETH_SetMACConfig(&heth, &macConfig);
+  }
+  if (status == HAL_OK)
+  {
+    status = HAL_ETH_WritePHYRegister(&heth, phyAddress, LAN8742_BMCR,
+                                      LAN8742_BMCR_LOOPBACK_100FD);
+  }
+  if (status == HAL_OK)
+  {
+    status = HAL_ETH_ReadPHYRegister(&heth, phyAddress, LAN8742_BMCR, &bmcr);
+    ethPhyBmcr = bmcr;
+  }
+  if ((status == HAL_OK) &&
+      ((ethPhyBmcr & LAN8742_BMCR_LOOPBACK_100FD) != LAN8742_BMCR_LOOPBACK_100FD))
+  {
+    status = HAL_ERROR;
+  }
+  if (status == HAL_OK)
+  {
+    status = HAL_ETH_Start(&heth);
+  }
+
+  ethLoopbackActiveMode = ETH_LOOPBACK_MODE_PHY;
+  ETH_Loopback_SaveInitStatus(status);
   return status;
 }
 
@@ -323,7 +427,7 @@ static void Set_Brightness_Duty(uint8_t duty)
   duty = (duty > 100) ? 100 : duty;
   duty = 100 - duty;
   duty = ((MAX_BRIGHTNESS_DUTY - MIN_BRIGHTNESS_DUTY) * duty) / 100 + MIN_BRIGHTNESS_DUTY;
-   __HAL_TIM_SET_COMPARE(&htim13, TIM_CHANNEL_1, duty);
+  __HAL_TIM_SET_COMPARE(&htim13, TIM_CHANNEL_1, duty);
 }
 
 static void APP_FillFrameBuffer(uint16_t color)
@@ -353,46 +457,22 @@ static void APP_RunColorCycleTest(void)
 
 static void LCD_FillColor(uint16_t color)
 {
-  /* LTDC Power-On Sequence (from ref_code) */
-  /* Step 1: NRST Reset Pulse */
   HAL_GPIO_WritePin(TFT_NRST_GPIO_Port, TFT_NRST_Pin, GPIO_PIN_RESET);
-  HAL_Delay(50);  /* > 50 ms */
+  HAL_Delay(50);
   HAL_GPIO_WritePin(TFT_NRST_GPIO_Port, TFT_NRST_Pin, GPIO_PIN_SET);
-
-/* Step 2: STBY Reset Pulse */
   HAL_GPIO_WritePin(TFT_EN_GPIO_Port, TFT_EN_Pin, GPIO_PIN_RESET);
-  HAL_Delay(900);  /* > 900 ms */
+  HAL_Delay(900);
   HAL_GPIO_WritePin(TFT_EN_GPIO_Port, TFT_EN_Pin, GPIO_PIN_SET);
-
   HAL_GPIO_WritePin(TFT_SETB_GPIO_Port, TFT_SETB_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(TFT_LR_GPIO_Port, TFT_LR_Pin, GPIO_PIN_SET);
-  /* Step 3: Wait for stabilization */
-  HAL_Delay(200);  /* > 200 ms */
-
-/* Step 4: Enable backlight FIRST - simplified for bring-up */
+  HAL_Delay(200);
   HAL_GPIO_WritePin(BL_EN_GPIO_Port, BL_EN_Pin, GPIO_PIN_SET);
   HAL_Delay(10);
   Set_Brightness_Duty(100);
   HAL_TIM_PWM_Start(&htim13, TIM_CHANNEL_1);
-
   APP_FillFrameBuffer(color);
-
-//  (void)color;
-//  volatile uint16_t *frameBuffer = (volatile uint16_t *)LCD_FB_ADDR;
-//  for (uint32_t y = 0; y < LCD_HEIGHT; y++)
-//  {
-//    for (uint32_t x = 0; x < LCD_WIDTH; x++)
-//    {
-//      frameBuffer[y * LCD_WIDTH + x] = (x < (LCD_WIDTH / 2U)) ? RGB565_RED : RGB565_GREEN;
-//    }
-//  }
-//
-//  __DSB();
-//  while (1)
-//  {
-//  }
-
 }
+
 /* USER CODE END 0 */
 
 /**
@@ -458,10 +538,19 @@ int main(void)
   {
     Error_Handler();
   }
-  if (ETH_Loopback_Init() != HAL_OK)
+#if ETH_LOOPBACK_TEST_MODE == ETH_LOOPBACK_MODE_MAC
+  if (ETH_MAC_Loopback_Init() != HAL_OK)
   {
     Error_Handler();
   }
+#elif ETH_LOOPBACK_TEST_MODE == ETH_LOOPBACK_MODE_PHY
+  if (ETH_PHY_Loopback_Init() != HAL_OK)
+  {
+    Error_Handler();
+  }
+#else
+#error "Invalid ETH_LOOPBACK_TEST_MODE"
+#endif
   LCD_FillColor(RGB565_WHITE);
   // APP_RunColorCycleTest();
   /* USER CODE END 2 */
