@@ -83,8 +83,8 @@ __attribute__((at(0x24020080))) ETH_DMADescTypeDef  DMATxDscrTab[ETH_TX_DESC_CNT
 
 #elif (defined ( __GNUC__ ) || defined ( __ARMCC_VERSION )) /* GNU Compiler */
 
-ETH_DMADescTypeDef DMARxDscrTab[ETH_RX_DESC_CNT] __attribute__((section("noncacheable_buffer"), aligned(32))); /* Ethernet Rx DMA Descriptors */
-ETH_DMADescTypeDef DMATxDscrTab[ETH_TX_DESC_CNT] __attribute__((section("noncacheable_buffer"), aligned(32))); /* Ethernet Tx DMA Descriptors */
+ETH_DMADescTypeDef DMARxDscrTab[ETH_RX_DESC_CNT] __attribute__((section(".RxDescripSection"))); /* Ethernet Rx DMA Descriptors */
+ETH_DMADescTypeDef DMATxDscrTab[ETH_TX_DESC_CNT] __attribute__((section(".TxDescripSection")));   /* Ethernet Tx DMA Descriptors */
 #endif
 
 ETH_TxPacketConfigTypeDef TxConfig;
@@ -122,6 +122,10 @@ const osThreadAttr_t TouchGFXTask_attributes = {
 };
 /* USER CODE BEGIN PV */
 extern uint8_t __lcd_framebuffer_start__[];
+static ETH_DMADescTypeDef ethLoopbackRxDesc[ETH_RX_DESC_CNT]
+  __attribute__((section("noncacheable_buffer"), aligned(32)));
+static ETH_DMADescTypeDef ethLoopbackTxDesc[ETH_TX_DESC_CNT]
+  __attribute__((section("noncacheable_buffer"), aligned(32)));
 static ETH_LoopbackRxBufferTypeDef ethLoopbackRxPool[ETH_LOOPBACK_RX_POOL_SIZE]
   __attribute__((section("noncacheable_buffer"), aligned(32)));
 static uint8_t ethLoopbackTxFrame[ETH_LOOPBACK_FRAME_SIZE]
@@ -273,9 +277,17 @@ static HAL_StatusTypeDef ETH_Loopback_Init(void)
   ETH_MACConfigTypeDef macConfig;
   HAL_StatusTypeDef status;
 
+  heth.Init.RxDesc = ethLoopbackRxDesc;
+  heth.Init.TxDesc = ethLoopbackTxDesc;
+  heth.Init.RxBuffLen = ETH_LOOPBACK_RX_BUFFER_SIZE;
+  status = HAL_ETH_Init(&heth);
+
   memset(ethLoopbackRxPool, 0, sizeof(ethLoopbackRxPool));
 
-  status = HAL_ETH_GetMACConfig(&heth, &macConfig);
+  if (status == HAL_OK)
+  {
+    status = HAL_ETH_GetMACConfig(&heth, &macConfig);
+  }
   if (status == HAL_OK)
   {
     macConfig.LoopbackMode = ENABLE;
@@ -603,7 +615,7 @@ static void MX_ETH_Init(void)
   heth.Init.MediaInterface = HAL_ETH_RMII_MODE;
   heth.Init.TxDesc = DMATxDscrTab;
   heth.Init.RxDesc = DMARxDscrTab;
-  heth.Init.RxBuffLen = ETH_LOOPBACK_RX_BUFFER_SIZE;
+  heth.Init.RxBuffLen = 1524;
 
   /* USER CODE BEGIN MACADDRESS */
 
@@ -1205,16 +1217,14 @@ static void MPU_Config(void)
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
 
+  /** Initializes and configures the Region and the memory to be protected
+  */
   MPU_InitStruct.Number = MPU_REGION_NUMBER3;
   MPU_InitStruct.BaseAddress = 0x24071C00;
   MPU_InitStruct.Size = MPU_REGION_SIZE_1KB;
-  MPU_InitStruct.SubRegionDisable = 0x0;
   MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL1;
-  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
   MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
   MPU_InitStruct.IsShareable = MPU_ACCESS_SHAREABLE;
-  MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
-  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
   /* Enables the MPU */
