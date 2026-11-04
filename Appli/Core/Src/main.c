@@ -59,11 +59,13 @@ typedef struct
 #define ETH_LOOPBACK_TX_TIMEOUT_MS    100U
 #define ETH_LOOPBACK_MODE_MAC         1U
 #define ETH_LOOPBACK_MODE_PHY         2U
+#define ETH_LOOPBACK_MODE_RJ45        3U
 #ifndef ETH_LOOPBACK_TEST_MODE
-#define ETH_LOOPBACK_TEST_MODE        ETH_LOOPBACK_MODE_PHY
+#define ETH_LOOPBACK_TEST_MODE        ETH_LOOPBACK_MODE_RJ45
 #endif
 
 #define LAN8742_BMCR                  0U
+#define LAN8742_BMSR                  1U
 #define LAN8742_PHYID1                2U
 #define LAN8742_PHYID2                3U
 #define LAN8742_PHYID1_VALUE          0x0007U
@@ -74,6 +76,8 @@ typedef struct
 #define LAN8742_BMCR_FULL_DUPLEX      (1U << 8)
 #define LAN8742_BMCR_LOOPBACK_100FD   (LAN8742_BMCR_LOOPBACK | \
                                        LAN8742_BMCR_SPEED_100M | \
+                                       LAN8742_BMCR_FULL_DUPLEX)
+#define LAN8742_BMCR_NORMAL_100FD     (LAN8742_BMCR_SPEED_100M | \
                                        LAN8742_BMCR_FULL_DUPLEX)
 
 /* Backlight control definitions (from ref_code) */
@@ -157,9 +161,11 @@ volatile uint32_t ethLoopbackTxErrors;
 volatile uint32_t ethLoopbackRxFrames;
 volatile uint32_t ethLoopbackRxPass;
 volatile uint32_t ethLoopbackRxCompareErrors;
+volatile uint32_t ethLoopbackRxMissingPackets;
 volatile uint32_t ethLoopbackRxAllocErrors;
 volatile uint32_t ethLoopbackLastTxSequence;
 volatile uint32_t ethLoopbackLastRxSequence;
+volatile uint32_t ethLoopbackRxExpectedSequence;
 volatile uint32_t ethLoopbackLastRxLength;
 volatile uint32_t ethLoopbackLastHalStatus;
 volatile uint32_t ethLoopbackLastEthError;
@@ -168,6 +174,11 @@ volatile uint32_t ethPhyAddress = 0xFFFFFFFFU;
 volatile uint32_t ethPhyId1;
 volatile uint32_t ethPhyId2;
 volatile uint32_t ethPhyBmcr;
+volatile uint32_t ethPhyBmsr;
+volatile uint32_t ethPhyLinkUp;
+volatile uint32_t ethPhyLinkReadErrors;
+volatile uint32_t ethPhyLinkChecks;
+static uint32_t ethPhyLastLinkCheckTick;
 static UART_EchoHandleTypeDef uart5Echo;
 static UART_EchoHandleTypeDef uart8Echo;
 /* USER CODE END PV */
@@ -277,9 +288,16 @@ static void ETH_Loopback_ProcessRx(void)
     {
       memcpy(&receivedSequence, &packet->buffer[32], sizeof(receivedSequence));
       ethLoopbackLastRxSequence = receivedSequence;
-      if (receivedSequence == ethLoopbackLastTxSequence)
+      if (receivedSequence == ethLoopbackRxExpectedSequence)
       {
         ethLoopbackRxPass++;
+        ethLoopbackRxExpectedSequence++;
+      }
+      else if (receivedSequence > ethLoopbackRxExpectedSequence)
+      {
+        ethLoopbackRxMissingPackets += receivedSequence - ethLoopbackRxExpectedSequence;
+        ethLoopbackRxCompareErrors++;
+        ethLoopbackRxExpectedSequence = receivedSequence + 1U;
       }
       else
       {
@@ -410,15 +428,106 @@ static HAL_StatusTypeDef ETH_PHY_Loopback_Init(void)
   return status;
 }
 
+static HAL_StatusTypeDef ETH_RJ45_Loopback_Init(void)
+{
+  ETH_MACConfigTypeDef macConfig;
+  uint32_t phyAddress;
+  uint32_t bmcr;
+  HAL_StatusTypeDef status = ETH_Loopback_CommonInit(&macConfig);
+
+  if (status == HAL_OK)
+  {
+    status = ETH_PHY_FindAddress(&phyAddress);
+  }
+  if (status == HAL_OK)
+  {
+    ethPhyAddress = phyAddress;
+    macConfig.LoopbackMode = DISABLE;
+    macConfig.Speed = ETH_SPEED_100M;
+    macConfig.DuplexMode = ETH_FULLDUPLEX_MODE;
+    status = HAL_ETH_SetMACConfig(&heth, &macConfig);
+  }
+  if (status == HAL_OK)
+  {
+    status = HAL_ETH_WritePHYRegister(&heth, phyAddress, LAN8742_BMCR,
+                                      LAN8742_BMCR_NORMAL_100FD);
+  }
+  if (status == HAL_OK)
+  {
+    HAL_Delay(330U);
+  }
+  if (status == HAL_OK)
+  {
+    status = HAL_ETH_ReadPHYRegister(&heth, phyAddress, LAN8742_BMCR, &bmcr);
+    ethPhyBmcr = bmcr;
+  }
+  if ((status == HAL_OK) &&
+      ((ethPhyBmcr & (LAN8742_BMCR_LOOPBACK | LAN8742_BMCR_SPEED_100M |
+                      LAN8742_BMCR_FULL_DUPLEX)) != LAN8742_BMCR_NORMAL_100FD))
+  {
+    status = HAL_ERROR;
+  }
+  if (status == HAL_OK)
+  {
+    status = HAL_ETH_ReadPHYRegister(&heth, phyAddress, LAN8742_BMSR, &ethPhyBmsr);
+  }
+  if (status == HAL_OK)
+  {
+    status = HAL_ETH_ReadPHYRegister(&heth, phyAddress, LAN8742_BMSR, &ethPhyBmsr);
+    ethPhyLinkUp = ((ethPhyBmsr & (1U << 2U)) != 0U) ? 1U : 0U;
+  }
+  if (status == HAL_OK)
+  {
+    status = HAL_ETH_Start(&heth);
+  }
+
+  ethLoopbackActiveMode = ETH_LOOPBACK_MODE_RJ45;
+  ethPhyLastLinkCheckTick = HAL_GetTick();
+  ETH_Loopback_SaveInitStatus(status);
+  return status;
+}
+
+static void ETH_RJ45_UpdateLinkStatus(void)
+{
+  uint32_t firstStatus;
+  uint32_t secondStatus;
+
+  if (ethPhyAddress > 31U)
+  {
+    return;
+  }
+
+  ethPhyLinkChecks++;
+  if ((HAL_ETH_ReadPHYRegister(&heth, ethPhyAddress, LAN8742_BMSR, &firstStatus) != HAL_OK) ||
+      (HAL_ETH_ReadPHYRegister(&heth, ethPhyAddress, LAN8742_BMSR, &secondStatus) != HAL_OK))
+  {
+    ethPhyLinkReadErrors++;
+    ethPhyLinkUp = 0U;
+    return;
+  }
+
+  ethPhyBmsr = secondStatus;
+  ethPhyLinkUp = ((secondStatus & (1U << 2U)) != 0U) ? 1U : 0U;
+}
+
 static void ETH_Loopback_Process(void)
 {
   uint32_t now = HAL_GetTick();
 
   ETH_Loopback_ProcessRx();
+  if ((ethLoopbackActiveMode == ETH_LOOPBACK_MODE_RJ45) &&
+      ((now - ethPhyLastLinkCheckTick) >= 100U))
+  {
+    ethPhyLastLinkCheckTick = now;
+    ETH_RJ45_UpdateLinkStatus();
+  }
   if ((now - ethLoopbackLastTxTick) >= ETH_LOOPBACK_TX_PERIOD_MS)
   {
     ethLoopbackLastTxTick = now;
-    (void)ETH_Loopback_Transmit();
+    if ((ethLoopbackActiveMode != ETH_LOOPBACK_MODE_RJ45) || (ethPhyLinkUp != 0U))
+    {
+      (void)ETH_Loopback_Transmit();
+    }
   }
 }
 
@@ -545,6 +654,11 @@ int main(void)
   }
 #elif ETH_LOOPBACK_TEST_MODE == ETH_LOOPBACK_MODE_PHY
   if (ETH_PHY_Loopback_Init() != HAL_OK)
+  {
+    Error_Handler();
+  }
+#elif ETH_LOOPBACK_TEST_MODE == ETH_LOOPBACK_MODE_RJ45
+  if (ETH_RJ45_Loopback_Init() != HAL_OK)
   {
     Error_Handler();
   }
