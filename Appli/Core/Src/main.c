@@ -152,6 +152,10 @@ static ETH_LoopbackRxBufferTypeDef ethLoopbackRxPool[ETH_LOOPBACK_RX_POOL_SIZE]
   __attribute__((section("noncacheable_buffer"), aligned(32)));
 static uint8_t ethLoopbackTxFrame[ETH_LOOPBACK_FRAME_SIZE]
   __attribute__((section("noncacheable_buffer"), aligned(32)));
+static uint8_t ethLoopbackTxSnapshot[ETH_LOOPBACK_FRAME_SIZE]
+  __attribute__((section("noncacheable_buffer"), aligned(32)));
+static uint8_t ethLoopbackRxSnapshot[ETH_LOOPBACK_FRAME_SIZE]
+  __attribute__((section("noncacheable_buffer"), aligned(32)));
 static uint32_t ethLoopbackLastTxTick;
 static uint32_t ethLoopbackSequence;
 volatile uint32_t ethLoopbackInitStatus;
@@ -230,20 +234,27 @@ static void ETH_Loopback_ReleaseRxBuffers(ETH_BufferTypeDef *buffer)
   }
 }
 
-static HAL_StatusTypeDef ETH_Loopback_Transmit(void)
+static void ETH_Loopback_BuildFrame(uint8_t *frame, uint32_t sequence)
 {
   static const uint8_t testPattern[] = "ETH_LOOPBACK";
+
+  memset(frame, 0, ETH_LOOPBACK_FRAME_SIZE);
+  memcpy(&frame[0], heth.Init.MACAddr, 6U);
+  memcpy(&frame[6], heth.Init.MACAddr, 6U);
+  frame[12] = (uint8_t)(ETH_LOOPBACK_ETHERTYPE >> 8);
+  frame[13] = (uint8_t)ETH_LOOPBACK_ETHERTYPE;
+  memcpy(&frame[14], testPattern, sizeof(testPattern));
+  memcpy(&frame[32], &sequence, sizeof(sequence));
+}
+
+static HAL_StatusTypeDef ETH_Loopback_Transmit(void)
+{
   ETH_BufferTypeDef txBuffer = {0};
   ETH_TxPacketConfigTypeDef txConfig = {0};
   HAL_StatusTypeDef status;
 
-  memset(ethLoopbackTxFrame, 0, sizeof(ethLoopbackTxFrame));
-  memcpy(&ethLoopbackTxFrame[0], heth.Init.MACAddr, 6U);
-  memcpy(&ethLoopbackTxFrame[6], heth.Init.MACAddr, 6U);
-  ethLoopbackTxFrame[12] = (uint8_t)(ETH_LOOPBACK_ETHERTYPE >> 8);
-  ethLoopbackTxFrame[13] = (uint8_t)ETH_LOOPBACK_ETHERTYPE;
-  memcpy(&ethLoopbackTxFrame[14], testPattern, sizeof(testPattern));
-  memcpy(&ethLoopbackTxFrame[32], &ethLoopbackSequence, sizeof(ethLoopbackSequence));
+  ETH_Loopback_BuildFrame(ethLoopbackTxFrame, ethLoopbackSequence);
+  memcpy(ethLoopbackTxSnapshot, ethLoopbackTxFrame, ETH_LOOPBACK_FRAME_SIZE);
 
   txBuffer.buffer = ethLoopbackTxFrame;
   txBuffer.len = sizeof(ethLoopbackTxFrame);
@@ -272,7 +283,6 @@ static HAL_StatusTypeDef ETH_Loopback_Transmit(void)
 
 static void ETH_Loopback_ProcessRx(void)
 {
-  static const uint8_t testPattern[] = "ETH_LOOPBACK";
   ETH_BufferTypeDef *packet = NULL;
   uint32_t receivedSequence;
 
@@ -281,14 +291,19 @@ static void ETH_Loopback_ProcessRx(void)
     ethLoopbackRxFrames++;
     ethLoopbackLastRxLength = packet->len;
 
-    if ((packet->len >= 36U) &&
-        (packet->buffer[12] == (uint8_t)(ETH_LOOPBACK_ETHERTYPE >> 8)) &&
-        (packet->buffer[13] == (uint8_t)ETH_LOOPBACK_ETHERTYPE) &&
-        (memcmp(&packet->buffer[14], testPattern, sizeof(testPattern)) == 0))
+    if ((packet->next == NULL) && (packet->len == ETH_LOOPBACK_FRAME_SIZE))
     {
-      memcpy(&receivedSequence, &packet->buffer[32], sizeof(receivedSequence));
+      memcpy(ethLoopbackRxSnapshot, packet->buffer, ETH_LOOPBACK_FRAME_SIZE);
+      memcpy(&receivedSequence, &ethLoopbackRxSnapshot[32], sizeof(receivedSequence));
       ethLoopbackLastRxSequence = receivedSequence;
-      if (receivedSequence == ethLoopbackRxExpectedSequence)
+
+      if (memcmp(ethLoopbackRxSnapshot,
+                 ethLoopbackTxSnapshot,
+                 ETH_LOOPBACK_FRAME_SIZE) != 0)
+      {
+        ethLoopbackRxCompareErrors++;
+      }
+      else if (receivedSequence == ethLoopbackRxExpectedSequence)
       {
         ethLoopbackRxPass++;
         ethLoopbackRxExpectedSequence++;
