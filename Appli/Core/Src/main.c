@@ -142,6 +142,13 @@ const osThreadAttr_t TouchGFXTask_attributes = {
   .stack_size = 4096 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
+/* Definitions for ETHLoopbackTask */
+osThreadId_t ETHLoopbackTaskHandle;
+const osThreadAttr_t ETHLoopbackTask_attributes = {
+  .name = "ETHLoopbackTask",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* USER CODE BEGIN PV */
 extern uint8_t __lcd_framebuffer_start__[];
 static ETH_DMADescTypeDef ethLoopbackRxDesc[ETH_RX_DESC_CNT]
@@ -203,6 +210,7 @@ static void MX_UART8_Init(void);
 static void MX_ETH_Init(void);
 void StartDefaultTask(void *argument);
 extern void TouchGFX_Task(void *argument);
+extern void StartETHLoopbackTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 static void LCD_FillColor(uint16_t color);
@@ -709,6 +717,9 @@ int main(void)
 
   /* creation of TouchGFXTask */
   TouchGFXTaskHandle = osThreadNew(TouchGFX_Task, NULL, &TouchGFXTask_attributes);
+
+  /* creation of ETHLoopbackTask */
+  ETHLoopbackTaskHandle = osThreadNew(StartETHLoopbackTask, NULL, &ETHLoopbackTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -1360,6 +1371,17 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
     UART_Echo_ErrorCallback(&uart8Echo, huart);
   }
 }
+
+void StartETHLoopbackTask(void *argument)
+{
+  (void)argument;
+
+  for(;;)
+  {
+    ETH_Loopback_Process();
+    osDelay(1);
+  }
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -1375,7 +1397,6 @@ void StartDefaultTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    ETH_Loopback_Process();
     UART_Echo_Process(&uart5Echo);
     UART_Echo_Process(&uart8Echo);
     osDelay(1);
