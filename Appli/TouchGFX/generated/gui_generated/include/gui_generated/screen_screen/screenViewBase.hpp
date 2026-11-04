@@ -10,6 +10,9 @@
 #include <touchgfx/widgets/Box.hpp>
 #include <touchgfx/widgets/Image.hpp>
 #include <touchgfx/widgets/TextArea.hpp>
+#include <touchgfx/widgets/ButtonWithLabel.hpp>
+#include <touchgfx/mixins/ClickListener.hpp>
+#include <touchgfx/widgets/TextAreaWithWildcard.hpp>
 
 class screenViewBase : public touchgfx::View<screenPresenter>
 {
@@ -29,6 +32,14 @@ protected:
     touchgfx::Box __background;
     touchgfx::Image image1;
     touchgfx::TextArea textArea1;
+    touchgfx::ClickListener< touchgfx::ButtonWithLabel > buttonWithLabel_ETHTEST;
+    touchgfx::TextAreaWithOneWildcard textArea2;
+
+    /*
+     * Wildcard Buffers
+     */
+    static const uint16_t TEXTAREA2_SIZE = 15;
+    touchgfx::Unicode::UnicodeChar textArea2Buffer[TEXTAREA2_SIZE];
 
 private:
 

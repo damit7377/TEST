@@ -128,11 +128,6 @@ static HAL_StatusTypeDef ETH_MAC_Loopback_Init(void)
         macConfig.DuplexMode = ETH_FULLDUPLEX_MODE;
         status = HAL_ETH_SetMACConfig(context.test->eth, &macConfig);
     }
-    if (status == HAL_OK)
-    {
-        status = HAL_ETH_Start(context.test->eth);
-    }
-
     context.test->activeMode = ETH_LOOPBACK_MODE_MAC;
     ETH_Loopback_SaveInitStatus(status);
     return status;
@@ -172,11 +167,6 @@ static HAL_StatusTypeDef ETH_PHY_Loopback_Init(void)
     {
         status = HAL_ERROR;
     }
-    if (status == HAL_OK)
-    {
-        status = HAL_ETH_Start(context.test->eth);
-    }
-
     context.test->activeMode = ETH_LOOPBACK_MODE_PHY;
     ETH_Loopback_SaveInitStatus(status);
     return status;
@@ -218,12 +208,8 @@ static HAL_StatusTypeDef ETH_RJ45_Loopback_Init(void)
     {
         status = HAL_ERROR;
     }
-    if (status == HAL_OK)
-    {
-        status = HAL_ETH_Start(context.test->eth);
-    }
-
     context.test->activeMode = ETH_LOOPBACK_MODE_RJ45;
+    context.test->lastLinkCheckTick = HAL_GetTick();
     ETH_Loopback_SaveInitStatus(status);
     return status;
 }
@@ -331,6 +317,45 @@ static void ETH_Loopback_ProcessRx(void)
     }
 }
 
+static void ETH_Loopback_ResetStatistics(void)
+{
+    context.test->sequence = 0U;
+    context.test->txAttempts = 0U;
+    context.test->txSuccess = 0U;
+    context.test->txErrors = 0U;
+    context.test->rxFrames = 0U;
+    context.test->rxPass = 0U;
+    context.test->rxCompareErrors = 0U;
+    context.test->rxMissingPackets = 0U;
+    context.test->rxAllocErrors = 0U;
+    context.test->lastTxSequence = 0U;
+    context.test->lastRxSequence = 0U;
+    context.test->rxExpectedSequence = 0U;
+    context.test->lastRxLength = 0U;
+    memset(context.txFrame, 0, sizeof(context.txFrame));
+    memset(context.txSnapshot, 0, sizeof(context.txSnapshot));
+    memset(context.rxSnapshot, 0, sizeof(context.rxSnapshot));
+}
+
+static ETH_TestResultTypeDef ETH_Loopback_EvaluateResult(void)
+{
+    if ((context.test->txAttempts == 0U) ||
+        (context.test->txAttempts != context.test->txSuccess) ||
+        (context.test->txErrors != 0U) ||
+        (context.test->rxFrames != context.test->rxPass) ||
+        (context.test->rxPass != context.test->txSuccess) ||
+        (context.test->rxMissingPackets != 0U) ||
+        (context.test->rxCompareErrors != 0U) ||
+        (context.test->rxAllocErrors != 0U) ||
+        ((context.test->activeMode == ETH_LOOPBACK_MODE_RJ45) &&
+         (context.test->phyLinkUp == 0U)))
+    {
+        return ETH_TEST_FAULT;
+    }
+
+    return ETH_TEST_PASS;
+}
+
 HAL_StatusTypeDef ETH_Loopback_Init(ETH_LoopbackHandleTypeDef *test,
                                     ETH_HandleTypeDef *eth)
 {
@@ -344,6 +369,7 @@ HAL_StatusTypeDef ETH_Loopback_Init(ETH_LoopbackHandleTypeDef *test,
     memset(test, 0, sizeof(*test));
     test->eth = eth;
     test->phyAddress = 0xFFFFFFFFU;
+    test->result = ETH_TEST_NOT_READY;
     context.test = test;
 
 #if ETH_LOOPBACK_TEST_MODE == ETH_LOOPBACK_MODE_MAC
@@ -356,12 +382,42 @@ HAL_StatusTypeDef ETH_Loopback_Init(ETH_LoopbackHandleTypeDef *test,
 #error "Invalid ETH_LOOPBACK_TEST_MODE"
 #endif
 
+    test->result = (status == HAL_OK) ? ETH_TEST_IDLE : ETH_TEST_FAULT;
+
     return status;
+}
+
+HAL_StatusTypeDef ETH_Loopback_RequestStart(void)
+{
+    if ((context.test == NULL) ||
+        (context.test->result == ETH_TEST_NOT_READY))
+    {
+        return HAL_ERROR;
+    }
+    if (context.test->result == ETH_TEST_RUNNING)
+    {
+        return HAL_BUSY;
+    }
+
+    context.test->startRequest = 1U;
+    context.test->result = ETH_TEST_RUNNING;
+    return HAL_OK;
+}
+
+ETH_TestResultTypeDef ETH_Loopback_GetResult(void)
+{
+    if (context.test == NULL)
+    {
+        return ETH_TEST_NOT_READY;
+    }
+
+    return (ETH_TestResultTypeDef)context.test->result;
 }
 
 void ETH_Loopback_Process(ETH_LoopbackHandleTypeDef *test)
 {
     uint32_t now;
+    HAL_StatusTypeDef status;
 
     if ((test == NULL) || (test != context.test))
     {
@@ -369,13 +425,46 @@ void ETH_Loopback_Process(ETH_LoopbackHandleTypeDef *test)
     }
 
     now = HAL_GetTick();
+    if (test->startRequest != 0U)
+    {
+        test->startRequest = 0U;
+        ETH_Loopback_ResetStatistics();
+        status = HAL_ETH_Start(test->eth);
+        test->lastHalStatus = status;
+        test->lastEthError = test->eth->ErrorCode;
+        if (status == HAL_OK)
+        {
+            test->testStartTick = now;
+            test->lastTxTick = now;
+            test->lastLinkCheckTick = now;
+            test->result = ETH_TEST_RUNNING;
+        }
+        else
+        {
+            test->result = ETH_TEST_FAULT;
+        }
+    }
+
+    if (test->result != ETH_TEST_RUNNING)
+    {
+        return;
+    }
+
     ETH_Loopback_ProcessRx();
     if ((test->activeMode == ETH_LOOPBACK_MODE_RJ45) &&
-        ((now - context.test->lastTxTick) >= 100U))
+        ((now - test->lastLinkCheckTick) >= 100U))
     {
+        test->lastLinkCheckTick = now;
         ETH_RJ45_UpdateLinkStatus();
     }
-    if ((now - test->lastTxTick) >= ETH_LOOPBACK_TX_PERIOD_MS)
+    if ((now - test->testStartTick) >= ETH_LOOPBACK_TEST_DURATION_MS)
+    {
+        status = HAL_ETH_Stop(test->eth);
+        test->lastHalStatus = status;
+        test->lastEthError = test->eth->ErrorCode;
+        test->result = (status == HAL_OK) ? ETH_Loopback_EvaluateResult() : ETH_TEST_FAULT;
+    }
+    else if ((now - test->lastTxTick) >= ETH_LOOPBACK_TX_PERIOD_MS)
     {
         test->lastTxTick = now;
         if ((test->activeMode != ETH_LOOPBACK_MODE_RJ45) || (test->phyLinkUp != 0U))

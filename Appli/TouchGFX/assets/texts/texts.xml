@@ -6,13 +6,22 @@
   <Texts>
     <TextGroup Id="Group1" />
     <TextGroup Id="Unsorted">
+      <Text Id="__SingleUse_Q949" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">default</Translation>
+      </Text>
+      <Text Id="__SingleUse_GJC6" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_F92S" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">ETH_TEST</Translation>
+      </Text>
       <Text Id="__SingleUse_KRNP" Alignment="Left" TypographyId="Large">
         <Translation Language="GB">V00.01</Translation>
       </Text>
     </TextGroup>
   </Texts>
   <Typographies>
-    <Typography Id="Default" Font="verdana.ttf" Size="20" Bpp="4" IsVector="no" Direction="LTR" FallbackCharacter="?" />
+    <Typography Id="Default" Font="verdana.ttf" Size="20" Bpp="4" IsVector="no" Direction="LTR" FallbackCharacter="?" WildcardCharacterRanges="0x20-0x7E" />
     <Typography Id="Large" Font="verdana.ttf" Size="40" Bpp="4" IsVector="no" Direction="LTR" FallbackCharacter="?" />
     <Typography Id="Small" Font="verdana.ttf" Size="10" Bpp="4" IsVector="no" Direction="LTR" FallbackCharacter="?" />
   </Typographies>

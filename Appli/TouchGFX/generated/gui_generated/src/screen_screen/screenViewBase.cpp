@@ -21,6 +21,21 @@ screenViewBase::screenViewBase()
     textArea1.setLinespacing(0);
     textArea1.setTypedText(touchgfx::TypedText(T___SINGLEUSE_KRNP));
     add(textArea1);
+
+    buttonWithLabel_ETHTEST.setXY(0, 0);
+    buttonWithLabel_ETHTEST.setBitmaps(touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_MEDIUM_ROUNDED_NORMAL_ID), touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_MEDIUM_ROUNDED_PRESSED_ID));
+    buttonWithLabel_ETHTEST.setLabelText(touchgfx::TypedText(T___SINGLEUSE_F92S));
+    buttonWithLabel_ETHTEST.setLabelColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    buttonWithLabel_ETHTEST.setLabelColorPressed(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    add(buttonWithLabel_ETHTEST);
+
+    textArea2.setPosition(240, 13, 120, 24);
+    textArea2.setColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    textArea2.setLinespacing(0);
+    Unicode::snprintf(textArea2Buffer, TEXTAREA2_SIZE, "%s", touchgfx::TypedText(T___SINGLEUSE_Q949).getText());
+    textArea2.setWildcard(textArea2Buffer);
+    textArea2.setTypedText(touchgfx::TypedText(T___SINGLEUSE_GJC6));
+    add(textArea2);
 }
 
 screenViewBase::~screenViewBase()

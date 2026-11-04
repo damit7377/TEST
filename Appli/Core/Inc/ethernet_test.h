@@ -36,6 +36,19 @@ extern "C" {
 #define ETH_LOOPBACK_TX_TIMEOUT_MS 100U
 #endif
 
+#ifndef ETH_LOOPBACK_TEST_DURATION_MS
+#define ETH_LOOPBACK_TEST_DURATION_MS 10000U
+#endif
+
+typedef enum
+{
+    ETH_TEST_NOT_READY = 0U,
+    ETH_TEST_IDLE,
+    ETH_TEST_RUNNING,
+    ETH_TEST_PASS,
+    ETH_TEST_FAULT
+} ETH_TestResultTypeDef;
+
 typedef struct
 {
     uint8_t data[ETH_LOOPBACK_RX_BUFFER_SIZE];
@@ -72,10 +85,16 @@ typedef struct
     volatile uint32_t phyLinkUp;
     volatile uint32_t phyLinkReadErrors;
     volatile uint32_t phyLinkChecks;
+    volatile uint32_t result;
+    volatile uint32_t startRequest;
+    uint32_t testStartTick;
+    uint32_t lastLinkCheckTick;
 } ETH_LoopbackHandleTypeDef;
 
 HAL_StatusTypeDef ETH_Loopback_Init(ETH_LoopbackHandleTypeDef *test,
                                     ETH_HandleTypeDef *eth);
+HAL_StatusTypeDef ETH_Loopback_RequestStart(void);
+ETH_TestResultTypeDef ETH_Loopback_GetResult(void);
 void ETH_Loopback_Process(ETH_LoopbackHandleTypeDef *test);
 void StartETHLoopbackTask(void *argument);
 
