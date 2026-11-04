@@ -25,21 +25,13 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "ethernet_test.h"
 #include "uart_echo.h"
 
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-#define ETH_LOOPBACK_RX_BUFFER_SIZE 96U
-
-typedef struct
-{
-  uint8_t data[ETH_LOOPBACK_RX_BUFFER_SIZE];
-  ETH_BufferTypeDef link;
-  volatile uint8_t inUse;
-} ETH_LoopbackRxBufferTypeDef;
-
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -51,34 +43,6 @@ typedef struct
 #define RGB565_GREEN    0x07E0U
 #define RGB565_RED      0xF800U
 #define RGB565_WHITE    0xFFFFU
-
-#define ETH_LOOPBACK_FRAME_SIZE       60U
-#define ETH_LOOPBACK_RX_POOL_SIZE     (ETH_RX_DESC_CNT + 1U)
-#define ETH_LOOPBACK_ETHERTYPE        0x88B5U
-#define ETH_LOOPBACK_TX_PERIOD_MS     1000U
-#define ETH_LOOPBACK_TX_TIMEOUT_MS    100U
-#define ETH_LOOPBACK_MODE_MAC         1U
-#define ETH_LOOPBACK_MODE_PHY         2U
-#define ETH_LOOPBACK_MODE_RJ45        3U
-#ifndef ETH_LOOPBACK_TEST_MODE
-#define ETH_LOOPBACK_TEST_MODE        ETH_LOOPBACK_MODE_RJ45
-#endif
-
-#define LAN8742_BMCR                  0U
-#define LAN8742_BMSR                  1U
-#define LAN8742_PHYID1                2U
-#define LAN8742_PHYID2                3U
-#define LAN8742_PHYID1_VALUE          0x0007U
-#define LAN8742_PHYID2_MASK           0xFFF0U
-#define LAN8742_PHYID2_VALUE          0xC130U
-#define LAN8742_BMCR_LOOPBACK         (1U << 14)
-#define LAN8742_BMCR_SPEED_100M       (1U << 13)
-#define LAN8742_BMCR_FULL_DUPLEX      (1U << 8)
-#define LAN8742_BMCR_LOOPBACK_100FD   (LAN8742_BMCR_LOOPBACK | \
-                                       LAN8742_BMCR_SPEED_100M | \
-                                       LAN8742_BMCR_FULL_DUPLEX)
-#define LAN8742_BMCR_NORMAL_100FD     (LAN8742_BMCR_SPEED_100M | \
-                                       LAN8742_BMCR_FULL_DUPLEX)
 
 /* Backlight control definitions (from ref_code) */
 #define MAX_BRIGHTNESS_DUTY    92
@@ -151,45 +115,7 @@ const osThreadAttr_t ETHLoopbackTask_attributes = {
 };
 /* USER CODE BEGIN PV */
 extern uint8_t __lcd_framebuffer_start__[];
-static ETH_DMADescTypeDef ethLoopbackRxDesc[ETH_RX_DESC_CNT]
-  __attribute__((section("noncacheable_buffer"), aligned(32)));
-static ETH_DMADescTypeDef ethLoopbackTxDesc[ETH_TX_DESC_CNT]
-  __attribute__((section("noncacheable_buffer"), aligned(32)));
-static ETH_LoopbackRxBufferTypeDef ethLoopbackRxPool[ETH_LOOPBACK_RX_POOL_SIZE]
-  __attribute__((section("noncacheable_buffer"), aligned(32)));
-static uint8_t ethLoopbackTxFrame[ETH_LOOPBACK_FRAME_SIZE]
-  __attribute__((section("noncacheable_buffer"), aligned(32)));
-static uint8_t ethLoopbackTxSnapshot[ETH_LOOPBACK_FRAME_SIZE]
-  __attribute__((section("noncacheable_buffer"), aligned(32)));
-static uint8_t ethLoopbackRxSnapshot[ETH_LOOPBACK_FRAME_SIZE]
-  __attribute__((section("noncacheable_buffer"), aligned(32)));
-static uint32_t ethLoopbackLastTxTick;
-static uint32_t ethLoopbackSequence;
-volatile uint32_t ethLoopbackInitStatus;
-volatile uint32_t ethLoopbackTxAttempts;
-volatile uint32_t ethLoopbackTxSuccess;
-volatile uint32_t ethLoopbackTxErrors;
-volatile uint32_t ethLoopbackRxFrames;
-volatile uint32_t ethLoopbackRxPass;
-volatile uint32_t ethLoopbackRxCompareErrors;
-volatile uint32_t ethLoopbackRxMissingPackets;
-volatile uint32_t ethLoopbackRxAllocErrors;
-volatile uint32_t ethLoopbackLastTxSequence;
-volatile uint32_t ethLoopbackLastRxSequence;
-volatile uint32_t ethLoopbackRxExpectedSequence;
-volatile uint32_t ethLoopbackLastRxLength;
-volatile uint32_t ethLoopbackLastHalStatus;
-volatile uint32_t ethLoopbackLastEthError;
-volatile uint32_t ethLoopbackActiveMode;
-volatile uint32_t ethPhyAddress = 0xFFFFFFFFU;
-volatile uint32_t ethPhyId1;
-volatile uint32_t ethPhyId2;
-volatile uint32_t ethPhyBmcr;
-volatile uint32_t ethPhyBmsr;
-volatile uint32_t ethPhyLinkUp;
-volatile uint32_t ethPhyLinkReadErrors;
-volatile uint32_t ethPhyLinkChecks;
-static uint32_t ethPhyLastLinkCheckTick;
+static ETH_LoopbackHandleTypeDef ethLoopback;
 static UART_EchoHandleTypeDef uart5Echo;
 static UART_EchoHandleTypeDef uart8Echo;
 /* USER CODE END PV */
@@ -210,19 +136,16 @@ static void MX_UART8_Init(void);
 static void MX_ETH_Init(void);
 void StartDefaultTask(void *argument);
 extern void TouchGFX_Task(void *argument);
-extern void StartETHLoopbackTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 static void LCD_FillColor(uint16_t color);
 static void APP_FillFrameBuffer(uint16_t color);
 static void APP_RunColorCycleTest(void);
-static HAL_StatusTypeDef ETH_MAC_Loopback_Init(void);
-static HAL_StatusTypeDef ETH_PHY_Loopback_Init(void);
-static void ETH_Loopback_Process(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+#if 0
 static void ETH_Loopback_ReleaseRxBuffers(ETH_BufferTypeDef *buffer)
 {
   ETH_BufferTypeDef *next;
@@ -553,6 +476,7 @@ static void ETH_Loopback_Process(void)
     }
   }
 }
+#endif
 
 static void Set_Brightness_Duty(uint8_t duty)
 {
@@ -670,24 +594,10 @@ int main(void)
   {
     Error_Handler();
   }
-#if ETH_LOOPBACK_TEST_MODE == ETH_LOOPBACK_MODE_MAC
-  if (ETH_MAC_Loopback_Init() != HAL_OK)
+  if (ETH_Loopback_Init(&ethLoopback, &heth) != HAL_OK)
   {
     Error_Handler();
   }
-#elif ETH_LOOPBACK_TEST_MODE == ETH_LOOPBACK_MODE_PHY
-  if (ETH_PHY_Loopback_Init() != HAL_OK)
-  {
-    Error_Handler();
-  }
-#elif ETH_LOOPBACK_TEST_MODE == ETH_LOOPBACK_MODE_RJ45
-  if (ETH_RJ45_Loopback_Init() != HAL_OK)
-  {
-    Error_Handler();
-  }
-#else
-#error "Invalid ETH_LOOPBACK_TEST_MODE"
-#endif
   LCD_FillColor(RGB565_WHITE);
   // APP_RunColorCycleTest();
   /* USER CODE END 2 */
@@ -719,7 +629,7 @@ int main(void)
   TouchGFXTaskHandle = osThreadNew(TouchGFX_Task, NULL, &TouchGFXTask_attributes);
 
   /* creation of ETHLoopbackTask */
-  ETHLoopbackTaskHandle = osThreadNew(StartETHLoopbackTask, NULL, &ETHLoopbackTask_attributes);
+  ETHLoopbackTaskHandle = osThreadNew(StartETHLoopbackTask, &ethLoopback, &ETHLoopbackTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -1293,6 +1203,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+#if 0
 void HAL_ETH_RxAllocateCallback(uint8_t **buffer)
 {
   *buffer = NULL;
@@ -1339,6 +1250,7 @@ void HAL_ETH_RxLinkCallback(void **start, void **end, uint8_t *buffer, uint16_t 
   }
   *end = link;
 }
+#endif
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
@@ -1372,16 +1284,6 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
   }
 }
 
-void StartETHLoopbackTask(void *argument)
-{
-  (void)argument;
-
-  for(;;)
-  {
-    ETH_Loopback_Process();
-    osDelay(1);
-  }
-}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */

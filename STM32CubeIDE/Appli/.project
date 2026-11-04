@@ -251,6 +251,16 @@
 			<locationURI>PARENT-2-PROJECT_LOC/Appli/Core/Src/freertos.c</locationURI>
 		</link>
 		<link>
+			<name>Application/User/Core/ethernet_test.c</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/Appli/Core/Src/ethernet_test.c</locationURI>
+		</link>
+		<link>
+			<name>Application/User/Core/ethernet_test.h</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/Appli/Core/Inc/ethernet_test.h</locationURI>
+		</link>
+		<link>
 			<name>Application/User/Core/main.c</name>
 			<type>1</type>
 			<locationURI>PARENT-2-PROJECT_LOC/Appli/Core/Src/main.c</locationURI>
